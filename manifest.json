@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Colab Pets",
+  "version": "1.0.0",
+  "description": "Adorable interactive pets for Google Colab & Jupyter Notebooks! 🐱🐶🐦",
+  "permissions": ["storage"],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://colab.research.google.com/*",
+        "http://localhost:8888/*",
+        "http://localhost:8889/*",
+        "http://localhost:8890/*",
+        "https://*.jupyter.org/*",
+        "https://*.jupyterhub.com/*"
+      ],
+      "css": ["content/pets.css"],
+      "js": ["content/pets.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

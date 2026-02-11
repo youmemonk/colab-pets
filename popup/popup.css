@@ -1,0 +1,207 @@
+/* ============================================
+   COLAB PETS - Popup Styles
+   ============================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 300px;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: linear-gradient(135deg, #FFF5F5 0%, #FFF0F5 50%, #F5F0FF 100%);
+  overflow-x: hidden;
+}
+
+.popup-container {
+  padding: 16px;
+}
+
+/* --- Header --- */
+.header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.header h1 {
+  font-size: 22px;
+  background: linear-gradient(135deg, #FF6B9D, #C44DFF, #6E8EFF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: #B0A0C0;
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* --- Pet Grid --- */
+.pet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.pet-card {
+  background: white;
+  border: 2px solid #F0E0F0;
+  border-radius: 12px;
+  padding: 10px 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.pet-card:hover {
+  border-color: #DDA0DD;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(221, 160, 221, 0.3);
+}
+
+.pet-card.active {
+  border-color: #FF6B9D;
+  background: linear-gradient(135deg, #FFF0F5, #FFE8F0);
+  box-shadow: 0 2px 8px rgba(255, 107, 157, 0.2);
+}
+
+.pet-card.active::after {
+  content: '✓';
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 10px;
+  color: #FF6B9D;
+  font-weight: bold;
+}
+
+.pet-card-emoji {
+  font-size: 28px;
+  margin-bottom: 4px;
+  transition: transform 0.2s;
+}
+
+.pet-card:hover .pet-card-emoji {
+  transform: scale(1.2) rotate(-5deg);
+}
+
+.pet-card-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #444;
+  margin-bottom: 2px;
+}
+
+.pet-card-desc {
+  font-size: 9px;
+  color: #999;
+}
+
+.pet-card-status {
+  font-size: 9px;
+  color: #FF6B9D;
+  margin-top: 3px;
+  min-height: 14px;
+}
+
+/* Last two cards centered */
+.pet-card:nth-child(4) {
+  grid-column: 1 / 2;
+  margin-left: auto;
+  margin-right: 0;
+  width: 100%;
+}
+
+.pet-card:nth-child(5) {
+  grid-column: 3 / 4;
+  margin-left: 0;
+  margin-right: auto;
+  width: 100%;
+}
+
+/* --- Tips --- */
+.tips {
+  background: white;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid #F0E0F0;
+}
+
+.tip {
+  font-size: 11px;
+  color: #777;
+  padding: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tip::before {
+  content: '~';
+  color: #DDA0DD;
+  font-weight: bold;
+}
+
+/* --- Actions --- */
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.party-btn {
+  background: linear-gradient(135deg, #FF6B9D, #C44DFF);
+  color: white;
+}
+
+.party-btn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 2px 8px rgba(196, 77, 255, 0.4);
+}
+
+.clear-btn {
+  background: #F5F0F5;
+  color: #999;
+  border: 1px solid #E8E0E8;
+}
+
+.clear-btn:hover {
+  background: #FFE8E8;
+  color: #E74C3C;
+  border-color: #FFB8B8;
+}
+
+/* --- Footer --- */
+.footer {
+  text-align: center;
+  font-size: 10px;
+  color: #CCC;
+}
+
+.footer span {
+  background: linear-gradient(135deg, #FFB8D0, #DDA0DD);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

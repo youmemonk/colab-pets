@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Colab Pets</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <div class="header">
+      <h1>Colab Pets</h1>
+      <p class="subtitle">your coding companions</p>
+    </div>
+
+    <!-- Pet Grid -->
+    <div class="pet-grid">
+      <button class="pet-card" data-type="cat">
+        <div class="pet-card-emoji">🐱</div>
+        <div class="pet-card-name">Whiskers</div>
+        <div class="pet-card-desc">Curious & cuddly</div>
+        <div class="pet-card-status"></div>
+      </button>
+
+      <button class="pet-card" data-type="dog">
+        <div class="pet-card-emoji">🐶</div>
+        <div class="pet-card-name">Biscuit</div>
+        <div class="pet-card-desc">Loyal & playful</div>
+        <div class="pet-card-status"></div>
+      </button>
+
+      <button class="pet-card" data-type="bird">
+        <div class="pet-card-emoji">🐦</div>
+        <div class="pet-card-name">Peep</div>
+        <div class="pet-card-desc">Chirpy & sweet</div>
+        <div class="pet-card-status"></div>
+      </button>
+
+      <button class="pet-card" data-type="bunny">
+        <div class="pet-card-emoji">🐰</div>
+        <div class="pet-card-name">Mochi</div>
+        <div class="pet-card-desc">Soft & bouncy</div>
+        <div class="pet-card-status"></div>
+      </button>
+
+      <button class="pet-card" data-type="hamster">
+        <div class="pet-card-emoji">🐹</div>
+        <div class="pet-card-name">Nugget</div>
+        <div class="pet-card-desc">Tiny & cheeky</div>
+        <div class="pet-card-status"></div>
+      </button>
+    </div>
+
+    <!-- Tips -->
+    <div class="tips">
+      <div class="tip">Click a pet to pet it!</div>
+      <div class="tip">Double-click to feed treats!</div>
+      <div class="tip">Pets react to your code!</div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button id="party-btn" class="action-btn party-btn" title="Throw a confetti party!">
+        🎉 Party!
+      </button>
+      <button id="clear-btn" class="action-btn clear-btn" title="Remove all pets">
+        Clear All
+      </button>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <span>made with ❤️ for you</span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

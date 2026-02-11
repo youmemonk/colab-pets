@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head><title>Generate Colab Pets Icons</title></head>
+<body>
+  <h2>Colab Pets - Icon Generator</h2>
+  <p>Right-click each image and "Save Image As" to the <code>icons/</code> folder.</p>
+  <div id="icons"></div>
+  <script>
+    const svgStr = `<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="64" cy="64" r="60" fill="url(#grad)"/>
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#FF6B9D;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#C44DFF;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      <circle cx="64" cy="68" r="30" fill="#FF9B50"/>
+      <polygon points="40,42 34,18 52,36" fill="#FF9B50"/>
+      <polygon points="88,42 94,18 76,36" fill="#FF9B50"/>
+      <polygon points="42,40 37,22 52,36" fill="#FFB8D0"/>
+      <polygon points="86,40 91,22 76,36" fill="#FFB8D0"/>
+      <ellipse cx="52" cy="64" rx="5" ry="6" fill="#333"/>
+      <ellipse cx="76" cy="64" rx="5" ry="6" fill="#333"/>
+      <circle cx="50" cy="62" r="2" fill="white"/>
+      <circle cx="74" cy="62" r="2" fill="white"/>
+      <ellipse cx="64" cy="74" rx="3" ry="2.5" fill="#FFB8D0"/>
+      <path d="M58,78 Q64,84 70,78" fill="none" stroke="#333" stroke-width="1.5"/>
+      <line x1="30" y1="70" x2="48" y2="72" stroke="#333" stroke-width="1"/>
+      <line x1="30" y1="76" x2="48" y2="76" stroke="#333" stroke-width="1"/>
+      <line x1="80" y1="72" x2="98" y2="70" stroke="#333" stroke-width="1"/>
+      <line x1="80" y1="76" x2="98" y2="76" stroke="#333" stroke-width="1"/>
+      <circle cx="44" cy="76" r="4" fill="#FFB8D0" opacity="0.5"/>
+      <circle cx="84" cy="76" r="4" fill="#FFB8D0" opacity="0.5"/>
+      <g transform="translate(90, 30) scale(0.6)">
+        <path d="M0,-10 C-10,-25 -35,-10 0,15 C35,-10 10,-25 0,-10Z" fill="#FF4D6D"/>
+      </g>
+    </svg>`;
+
+    const sizes = [16, 48, 128];
+    const container = document.getElementById('icons');
+
+    sizes.forEach(size => {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, size, size);
+        URL.revokeObjectURL(url);
+        const pngUrl = canvas.toDataURL('image/png');
+        const imgEl = document.createElement('img');
+        imgEl.src = pngUrl;
+        imgEl.style.margin = '10px';
+        imgEl.style.border = '1px solid #ccc';
+        const label = document.createElement('div');
+        label.innerHTML = `<strong>icon${size}.png</strong> (${size}x${size})`;
+        const link = document.createElement('a');
+        link.href = pngUrl;
+        link.download = `icon${size}.png`;
+        link.textContent = `Download icon${size}.png`;
+        link.style.display = 'block';
+        link.style.margin = '5px 10px';
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'inline-block';
+        wrapper.style.textAlign = 'center';
+        wrapper.style.margin = '10px';
+        wrapper.appendChild(imgEl);
+        wrapper.appendChild(label);
+        wrapper.appendChild(link);
+        container.appendChild(wrapper);
+      };
+      img.src = url;
+    });
+  </script>
+</body>
+</html>
