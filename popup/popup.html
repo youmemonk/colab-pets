@@ -2,56 +2,59 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Colab Pets</title>
+  <title>Chitti</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div class="popup">
     <div class="header">
-      <h1>Colab Pets</h1>
-      <p class="sub">your coding companions</p>
+      <div class="mango-icon">🐦</div>
+      <h1>Chitti</h1>
+      <p class="sub">your cockatiel companion</p>
     </div>
 
-    <div class="pet-grid">
-      <button class="pet-card" data-type="cat">
-        <span class="emoji">🐱</span><span class="pname">Whiskers</span><span class="pdesc">Curious & cuddly</span><span class="pstatus"></span>
-      </button>
-      <button class="pet-card" data-type="dog">
-        <span class="emoji">🐶</span><span class="pname">Biscuit</span><span class="pdesc">Loyal & playful</span><span class="pstatus"></span>
-      </button>
-      <button class="pet-card" data-type="bird">
-        <span class="emoji">🐦</span><span class="pname">Peep</span><span class="pdesc">Chirpy & sweet</span><span class="pstatus"></span>
-      </button>
-      <button class="pet-card" data-type="bunny">
-        <span class="emoji">🐰</span><span class="pname">Mochi</span><span class="pdesc">Soft & bouncy</span><span class="pstatus"></span>
-      </button>
-      <button class="pet-card" data-type="hamster">
-        <span class="emoji">🐹</span><span class="pname">Nugget</span><span class="pdesc">Tiny & cheeky</span><span class="pstatus"></span>
-      </button>
-      <button class="pet-card" data-type="duck">
-        <span class="emoji">🦆</span><span class="pname">Quackers</span><span class="pdesc">Waddly & splashy</span><span class="pstatus"></span>
-      </button>
-      <button class="pet-card" data-type="redpanda">
-        <span class="emoji">🦝</span><span class="pname">Maple</span><span class="pdesc">Fluffy & rolly</span><span class="pstatus"></span>
-      </button>
-      <button class="pet-card" data-type="frog">
-        <span class="emoji">🐸</span><span class="pname">Ribbert</span><span class="pdesc">Hoppy & silly</span><span class="pstatus"></span>
-      </button>
+    <div class="status-card">
+      <div class="mood-row">
+        <span class="mood-label">Mood:</span>
+        <span id="mood-val" class="mood-val">content 🧡</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat">📊 <span id="s-cells">0</span> cells</div>
+        <div class="stat">🐛 <span id="s-errors">0</span> bugs</div>
+        <div class="stat">⏱ <span id="s-time">0</span>m session</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Ambient Sounds</div>
+      <div class="ambient-row">
+        <button class="amb-btn" data-type="rain">🌧️ Rain</button>
+        <button class="amb-btn" data-type="cafe">☕ Café</button>
+        <button class="amb-btn active" data-type="">🔇 Off</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Page Effects</div>
+      <div class="fx-grid">
+        <button class="fx-btn" data-fx="cherryBlossoms">🌸</button>
+        <button class="fx-btn" data-fx="leafFall">🍃</button>
+        <button class="fx-btn" data-fx="meteorShower">✨</button>
+        <button class="fx-btn" data-fx="confetti">🎉</button>
+        <button class="fx-btn" data-fx="featherShower">🪶</button>
+        <button class="fx-btn" data-fx="rainbow">🌈</button>
+        <button class="fx-btn" data-fx="bubbleShower">🫧</button>
+        <button class="fx-btn" data-fx="randomFx">🎲</button>
+      </div>
     </div>
 
     <div class="tips">
-      <div class="tip">Click to pet, double-click to feed!</div>
-      <div class="tip">Drag pets anywhere on the page!</div>
-      <div class="tip">Pets react to your code & cursor!</div>
+      <div class="tip">Click Chitti to pet, double-click to feed!</div>
+      <div class="tip">Drag fast to shoo — Chitti flies off (and comes back offended)</div>
+      <div class="tip">Chitti reacts to your code running!</div>
     </div>
 
-    <div class="actions">
-      <button id="party-btn" class="btn party">🎉 Party!</button>
-      <button id="tricks-btn" class="btn tricks">🐾 Tricks!</button>
-      <button id="clear-btn" class="btn clear">Clear</button>
-    </div>
-
-    <div class="footer">made with ❤️ for you</div>
+    <div class="footer">made with 🧡 for someone special</div>
   </div>
   <script src="popup.js"></script>
 </body>
