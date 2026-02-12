@@ -127,6 +127,32 @@
 .mango-zzz:nth-child(3) { animation-delay: 1.2s; right: -14px; top: -24px; font-size: 9px; }
 @keyframes mz { 0% { opacity: 0; transform: translateY(0) translateX(0); } 25% { opacity: 0.7; } 100% { opacity: 0; transform: translateY(-14px) translateX(8px); } }
 
+/* ── Footprints ── */
+.mango-footprint { position: fixed; pointer-events: none; z-index: 99997; font-size: 6px; color: #D0C0A0; opacity: 0.3; animation: mfp-fade 4s ease-out forwards; }
+@keyframes mfp-fade { 0% { opacity: 0.3; } 70% { opacity: 0.15; } 100% { opacity: 0; } }
+
+/* ── Feather trail ── */
+.mango-feather-trail { position: fixed; pointer-events: none; z-index: 100004; font-size: 10px; opacity: 0.6; animation: mft-drift 1.5s ease-out forwards; }
+@keyframes mft-drift { 0% { opacity: 0.6; transform: translateY(0) rotate(0); } 100% { opacity: 0; transform: translateY(30px) translateX(15px) rotate(90deg); } }
+
+/* ── Seasonal accessory ── */
+.m-seasonal { position: absolute; top: -2px; left: 50%; transform: translateX(-50%); font-size: 10px; pointer-events: none; z-index: 1; animation: ms-bob 3s ease-in-out infinite; }
+@keyframes ms-bob { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-1px); } }
+
+/* ── Guide overlay ── */
+.mango-guide { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200000; display: flex; align-items: center; justify-content: center; background: rgba(255,240,220,0.4); backdrop-filter: blur(3px); cursor: pointer; pointer-events: all; opacity: 0; transition: opacity 0.4s; }
+.mango-guide.mg-show { opacity: 1; }
+.mango-guide.mg-hide { opacity: 0; }
+.mg-card { background: linear-gradient(135deg, #FFFCF0, #FFF5E0, #FFF0F0); border: 2px solid #F0C880; border-radius: 18px; padding: 24px 28px; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 50px rgba(240,180,80,0.3); animation: mg-pop 0.4s ease; }
+@keyframes mg-pop { 0% { transform: scale(0.8) translateY(20px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+.mg-title { font-size: 18px; font-weight: 800; text-align: center; color: #D08020; margin-bottom: 4px; }
+.mg-sub { font-size: 11px; color: #C0A060; text-align: center; margin-bottom: 16px; font-style: italic; }
+.mg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mg-section { font-size: 11px; font-weight: 700; color: #B08030; margin-bottom: 4px; }
+.mg-cmd { font-size: 10px; font-weight: 400; color: #666; padding: 2px 0; }
+.mg-cmd b { color: #D07020; font-family: 'Courier New', monospace; background: rgba(240,200,100,0.15); padding: 0 4px; border-radius: 3px; }
+.mg-footer { text-align: center; font-size: 9px; color: #C0A080; margin-top: 14px; }
+
 /* ── Seed cursor ── */
 body.mango-seed-cursor, body.mango-seed-cursor * { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ctext y='18' font-size='16'%3E🌰%3C/text%3E%3C/svg%3E") 12 12, auto !important; }
 

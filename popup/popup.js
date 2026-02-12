@@ -10,20 +10,6 @@
     });
   }
 
-  // Ambient
-  const ambBtns = document.querySelectorAll('.amb-btn');
-  chrome.storage.sync.get(['mangoAmbient'], r => {
-    const cur = r.mangoAmbient || '';
-    ambBtns.forEach(b => b.classList.toggle('active', b.dataset.type === cur));
-  });
-  ambBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      ambBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      send({ action: 'ambient', type: btn.dataset.type || null });
-    });
-  });
-
   // Effects
   document.querySelectorAll('.fx-btn').forEach(btn => {
     btn.addEventListener('click', () => {
