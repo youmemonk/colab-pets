@@ -2,10 +2,17 @@
 body { width: 300px; font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, #FFFCF0 0%, #FFF8E0 50%, #FFF5F0 100%); }
 .popup { padding: 14px; }
 
-.header { text-align: center; margin-bottom: 10px; }
+.header { text-align: center; margin-bottom: 8px; }
 .mango-icon { font-size: 32px; margin-bottom: 2px; }
 .header h1 { font-size: 20px; font-weight: 800; background: linear-gradient(135deg, #F0A030, #E07020, #F0DC50); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .sub { font-size: 10px; color: #C0A060; font-style: italic; }
+
+.tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+.tab { flex: 1; padding: 6px 4px; border: 1.5px solid #F0E0C0; border-radius: 8px; background: white; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; color: #888; }
+.tab:hover { border-color: #E0C080; }
+.tab.active { border-color: #F0A030; background: linear-gradient(135deg, #FFF8E0, #FFF0D0); color: #E08020; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 
 .status-card { background: white; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; border: 1px solid #F0E0C0; }
 .mood-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -16,12 +23,10 @@ body { width: 300px; font-family: 'Segoe UI', system-ui, sans-serif; background:
 
 .section { margin-bottom: 10px; }
 .section-title { font-size: 9px; color: #C0A060; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
-
 .ambient-row { display: flex; gap: 5px; }
 .amb-btn { flex: 1; padding: 6px; border: 1.5px solid #F0E0C0; border-radius: 8px; background: white; font-size: 10px; cursor: pointer; transition: all 0.2s; color: #888; font-weight: 600; }
 .amb-btn:hover { border-color: #E0C080; }
 .amb-btn.active { border-color: #F0A030; background: linear-gradient(135deg, #FFF8E0, #FFF0D0); color: #E08020; }
-
 .fx-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
 .fx-btn { padding: 8px; border: 1.5px solid #F0E0C0; border-radius: 8px; background: white; font-size: 16px; cursor: pointer; transition: all 0.2s; text-align: center; }
 .fx-btn:hover { border-color: #E0C080; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(240,180,50,0.2); }
@@ -30,5 +35,14 @@ body { width: 300px; font-family: 'Segoe UI', system-ui, sans-serif; background:
 .tips { background: white; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; border: 1px solid #F0E0C0; }
 .tip { font-size: 9px; color: #999; padding: 1px 0; }
 .tip::before { content: '~ '; color: #E0C080; font-weight: bold; }
+
+/* Diary */
+.diary-header { font-size: 14px; font-weight: 700; color: #555; text-align: center; margin-bottom: 2px; }
+.diary-sub { font-size: 9px; color: #C0A060; text-align: center; font-style: italic; margin-bottom: 8px; }
+.diary-list { max-height: 280px; overflow-y: auto; }
+.diary-entry { background: white; border-radius: 8px; padding: 7px 10px; margin-bottom: 5px; border: 1px solid #F0E0C0; }
+.diary-text { font-size: 10px; color: #555; font-family: 'Comic Sans MS', cursive; line-height: 1.4; }
+.diary-time { font-size: 8px; color: #C0B0A0; margin-top: 2px; }
+.diary-empty { text-align: center; font-size: 11px; color: #C0B0A0; padding: 20px; font-style: italic; }
 
 .footer { text-align: center; font-size: 9px; background: linear-gradient(135deg, #F0A030, #E07020); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }

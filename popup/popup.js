@@ -10,7 +10,7 @@
     });
   }
 
-  // Ambient sound toggles
+  // Ambient
   const ambBtns = document.querySelectorAll('.amb-btn');
   chrome.storage.sync.get(['mangoAmbient'], r => {
     const cur = r.mangoAmbient || '';
@@ -20,29 +20,26 @@
     btn.addEventListener('click', () => {
       ambBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      const type = btn.dataset.type;
-      send({ action: 'ambient', type: type || null });
+      send({ action: 'ambient', type: btn.dataset.type || null });
     });
   });
 
-  // Page effects
+  // Effects
   document.querySelectorAll('.fx-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const fx = btn.dataset.fx;
-      send({ action: fx === 'randomFx' ? 'randomFx' : fx });
+      send({ action: btn.dataset.fx });
       btn.style.transform = 'scale(1.2)';
       setTimeout(() => { btn.style.transform = ''; }, 200);
     });
   });
 
-  // Load stats
+  // Stats
   async function loadStats() {
     const r = await send({ action: 'getStats' });
     if (r?.stats) {
       document.getElementById('s-cells').textContent = r.stats.cells || 0;
       document.getElementById('s-errors').textContent = r.stats.errors || 0;
-      const mins = Math.round((Date.now() - (r.stats.session || Date.now())) / 60000);
-      document.getElementById('s-time').textContent = mins;
+      document.getElementById('s-time').textContent = Math.round((Date.now() - (r.stats.session || Date.now())) / 60000);
     }
     if (r?.mood) {
       const moods = { content: 'content 🧡', happy: 'happy 😊', excited: 'excited 🎉', curious: 'curious 👀', annoyed: 'hmph 😤', concerned: 'worried 😟', sleepy: 'sleepy 💤' };

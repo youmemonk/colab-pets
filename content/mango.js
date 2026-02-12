@@ -6,9 +6,9 @@
   'use strict';
   const C = {
     speed: { walk: 1.2, run: 3, fly: 5 },
-    tick: [1500, 4500], sleepAfter: 70000, speechMs: 3500, cursorDist: 130,
-    vol: 0.10, poopChance: 0.04, giftChance: 0.08, flockChance: 0.04,
-    mischief: 0.30, noteInterval: [60000, 180000], singChance: 0.25,
+    tick: [2000, 5500], sleepAfter: 75000, speechMs: 3500, cursorDist: 125,
+    vol: 0.09, poopChance: 0.03, giftChance: 0.06, flockChance: 0.03,
+    mischief: 0.25, noteInterval: [150000, 280000], singChance: 0.25,
   };
   const rand = (a, b) => Math.random() * (b - a) + a;
   const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -45,23 +45,80 @@
       ]);
       m.forEach(([f, t]) => setTimeout(() => this._t('sine', [f, f * 1.05], 0.14, 0.06), t));
     }
-    // ♪ Famous songs cockatiels love to whistle ♪
+    // ♪ Famous songs cockatiels love to whistle — slow, proper melodies ♪
     song() {
       const songs = [
-        { name: 'Twinkle Twinkle', notes: [[523,0],[523,180],[784,380],[784,560],[880,740],[880,920],[784,1150],[698,1400],[698,1580],[659,1760],[659,1940],[587,2120],[587,2300],[523,2550]] },
-        { name: 'Happy Birthday', notes: [[523,0],[523,130],[587,300],[523,500],[698,700],[659,950],[523,1250],[523,1380],[587,1550],[523,1750],[784,1950],[698,2200]] },
-        { name: 'Imperial March', notes: [[392,0],[392,250],[392,500],[311,700],[466,850],[392,1050],[311,1250],[466,1400],[392,1650]] },
-        { name: 'Totoro Walk', notes: [[784,0],[659,180],[587,360],[523,540],[587,720],[659,900],[784,1100],[659,1300],[784,1550],[880,1730],[784,1910],[659,2090],[523,2300]] },
-        { name: 'Beethoven 5th', notes: [[784,0],[784,150],[784,300],[622,500],[698,850],[698,1000],[698,1150],[587,1350]] },
-        { name: 'My Heart Will Go On', notes: [[659,0],[659,200],[659,400],[587,550],[659,700],[698,900],[659,1100],[587,1250],[523,1400],[587,1600],[659,1800]] },
-        { name: 'Jingle Bells', notes: [[659,0],[659,180],[659,400],[659,580],[659,760],[659,980],[659,1160],[784,1340],[523,1520],[587,1700],[659,1950]] },
-        { name: 'Fur Elise', notes: [[659,0],[622,150],[659,300],[622,450],[659,600],[494,750],[587,900],[523,1050],[440,1250]] },
-        { name: 'Can Can', notes: [[659,0],[659,100],[698,220],[659,340],[698,460],[659,560],[523,680],[659,800],[659,900],[698,1020],[659,1140],[523,1260],[587,1380],[659,1480]] },
-        { name: 'Wolf Whistle', notes: [[500,0],[700,80],[900,160],[1100,240],[1300,320],[700,500],[900,600],[1100,700],[1400,800],[1100,950]] },
+        { name: 'Hedwig\'s Theme ⚡', notes: [ // Harry Potter
+          [494,0],[659,400],[784,700],[740,1000],[659,1400],[988,1800],[880,2300],
+          [740,3000],[659,3700],[784,4100],[740,4400],[622,4800],[698,5200],[494,5700]
+        ]},
+        { name: 'He\'s a Pirate 🏴‍☠️', notes: [ // Pirates of the Caribbean
+          [587,0],[587,200],[587,400],[622,650],[698,850],
+          [698,1200],[698,1400],[622,1650],[698,1850],[784,2050],
+          [784,2400],[784,2600],[740,2850],[784,3050],[880,3250],
+          [587,3650],[587,3850],[587,4050],[622,4300],[698,4500],
+          [698,4850],[698,5050],[622,5300],[698,5500],[587,5700],
+          [587,6100],[587,6400]
+        ]},
+        { name: 'Twinkle Twinkle ⭐', notes: [
+          [523,0],[523,400],[784,800],[784,1200],[880,1600],[880,2000],[784,2500],
+          [698,3000],[698,3400],[659,3800],[659,4200],[587,4600],[587,5000],[523,5500]
+        ]},
+        { name: 'Happy Birthday 🎂', notes: [
+          [392,0],[392,250],[440,550],[392,900],[523,1250],[494,1650],
+          [392,2200],[392,2450],[440,2750],[392,3100],[587,3450],[523,3850],
+          [392,4400],[392,4650],[784,4950],[659,5350],[523,5700],[494,6050],[440,6400]
+        ]},
+        { name: 'Imperial March 🌑', notes: [ // Star Wars
+          [392,0],[392,400],[392,800],[311,1150],[466,1400],[392,1800],[311,2150],[466,2400],[392,2800],
+          [587,3400],[587,3800],[587,4200],[622,4550],[466,4800],[370,5200],[311,5550],[466,5800],[392,6200]
+        ]},
+        { name: 'My Neighbor Totoro 🌳', notes: [
+          [659,0],[784,350],[880,700],[784,1050],[659,1400],[523,1750],
+          [587,2200],[659,2550],[587,2900],[523,3250],[440,3600],
+          [523,4100],[587,4450],[659,4800],[784,5150],[659,5500],[523,5850]
+        ]},
+        { name: 'My Heart Will Go On 💙', notes: [ // Titanic
+          [659,0],[659,400],[659,800],[587,1100],[659,1400],
+          [698,1800],[659,2200],[587,2550],[523,2900],
+          [587,3400],[659,3800],[659,4200],[587,4500],[523,4800],
+          [587,5200],[659,5600],[698,6000],[659,6400]
+        ]},
+        { name: 'Für Elise 🎹', notes: [ // Beethoven
+          [659,0],[622,300],[659,600],[622,900],[659,1200],[494,1500],[587,1800],[523,2100],[440,2500],
+          [262,3100],[330,3400],[440,3700],[494,4100],
+          [330,4700],[416,5000],[494,5300],[523,5700]
+        ]},
+        { name: 'Can Can 💃', notes: [
+          [659,0],[659,200],[698,450],[659,650],[698,900],[659,1100],[523,1350],
+          [659,1600],[659,1800],[698,2050],[659,2250],[523,2500],
+          [587,2750],[523,2950],[587,3200],[659,3450],[698,3700],
+          [784,3950],[698,4200],[659,4500],[587,4800],[523,5100]
+        ]},
+        { name: 'Jingle Bells 🔔', notes: [
+          [659,0],[659,350],[659,750],
+          [659,1200],[659,1550],[659,1950],
+          [659,2400],[784,2750],[523,3050],[587,3350],[659,3800],
+          [698,4300],[698,4650],[698,4950],[698,5200],[659,5500],[659,5800],
+          [659,6050],[587,6350],[587,6650],[659,6950],[587,7250],[784,7600]
+        ]},
+        { name: 'River Flows in You 🌊', notes: [ // Yiruma
+          [440,0],[523,350],[659,700],[523,1050],[440,1400],
+          [523,1850],[659,2200],[784,2550],[659,2900],
+          [523,3350],[440,3700],[523,4050],[659,4400],
+          [523,4750],[440,5100],[392,5450],[440,5800]
+        ]},
+        { name: 'Zelda\'s Lullaby 🧝', notes: [
+          [494,0],[587,500],[440,1000],
+          [494,1700],[587,2200],[440,2700],
+          [494,3400],[587,3900],[880,4400],[784,4900],
+          [587,5500],[523,6000],[440,6500]
+        ]},
       ];
       const s = pick(songs);
-      s.notes.forEach(([f, t]) => setTimeout(() => this._t('sine', [f, f * 1.03], 0.16, 0.07), t));
-      return s.name;
+      // play each note with proper sustain for a whistling cockatiel
+      s.notes.forEach(([f, t]) => setTimeout(() => this._t('sine', [f, f * 1.02], 0.28, 0.07), t));
+      return s;
     }
     ambientStart(type) {
       this.ambientStop(); if (!this._i()) return;
@@ -190,6 +247,19 @@
       el.addEventListener('click', e => { if (!this._dragged) this._onPet(e); });
       el.addEventListener('dblclick', e => this._onFeed(e));
       el.addEventListener('pointerdown', e => this._dragStart(e));
+      // Peekaboo: cursor on face for 3 seconds
+      let peekTimer = null;
+      el.addEventListener('mouseenter', () => {
+        peekTimer = setTimeout(() => {
+          if (!this._sleeping && !this._offScreen && !this._dragging) {
+            this._setAnim('peek'); this.say(pick(['PEEKABOO! 👀', 'I SEE YOU!', 'Boo! 🙈', 'PEEKABOO!! Hehehe']));
+            sfx.chirp(); sfx.happy();
+            for (let i = 0; i < 4; i++) setTimeout(() => this._particle(this.x + 30 + rand(-12, 12), this.y - 10, pick(['👀', '🙈', '✨', '😄'])), i * 150);
+            setTimeout(() => this._setAnim('idle'), 2000);
+          }
+        }, 3000);
+      });
+      el.addEventListener('mouseleave', () => { clearTimeout(peekTimer); });
     }
     // ─── Eye tracking ───
     _eyeLoop() {
@@ -285,12 +355,15 @@
         const roll = Math.random();
         const cells = Lab.cells();
         if (roll < 0.20) { this._walkRandom(() => this._next(tick)); return; }
-        if (roll < 0.32 && cells.length) { this._goToCell(pick(cells), () => { this.say(pick(['*peeks at code*', '*reads along*', '*sits on code*', '*pecks at text*', '*studies intently*'])); this._next(tick, rand(3000, 7000)); }); return; }
-        if (roll < 0.32 + C.mischief) { this._mischief(); }
-        else if (roll < 0.70) { this._idleAction(); }
-        else if (roll < 0.78) { this._walkOff(() => this._next(tick)); return; }
+        else if (roll < 0.32 && cells.length) { this._goToCell(pick(cells), () => { this.say(pick(['*peeks at code*', '*reads along*', '*sits on code*', '*pecks at text*', '*studies intently*'])); this._next(tick, rand(3000, 7000)); }); return; }
+        else if (roll < 0.32 + C.mischief) { this._mischief(); }
+        else if (roll < 0.70) { this._sing(); this._next(tick, rand(6000, 12000)); return; }
+        else if (roll < 0.78) { this._idleAction(); }
+        else if (roll < 0.84) { this._walkOff(() => this._next(tick)); return; }
         else if (Math.random() < C.giftChance) { this._bringGift(); }
         else if (Math.random() < C.flockChance) { this.app.effects.flock(); this.say('*EXCITED CHIRPING!*'); sfx.chirp(); sfx.chirp2(); this.setMood('excited'); setTimeout(() => this.setMood('content'), 3000); }
+        else if (Math.random() < 0.015) { this._rareBehavior(); }
+        else if (Math.random() < 0.12) { this._exploreUI(); }
         else { this._setAnim('idle'); this.say(pick(['*chirp*', '*fluffs up*', '*looks around*'])); }
         this._next(tick);
       };
@@ -315,16 +388,24 @@
     }
     _sing() {
       this._setAnim('bob');
-      if (Math.random() < 0.6) {
+      if (Math.random() < 0.7) {
         // famous song!
-        const name = sfx.song();
-        this.say(`♪ ${name}~ ♪`);
+        const s = sfx.song();
+        this.say(`♪ ${s.name}~ ♪`);
+        // find the longest note time to know song duration
+        const dur = Math.max(...s.notes.map(n => n[1])) + 500;
+        // emit music notes throughout the song
+        const noteCount = Math.ceil(dur / 600);
+        for (let i = 0; i < noteCount; i++) setTimeout(() => {
+          if (!this._dead) this._particle(this.x + 30 + rand(-20, 20), this.y - 12, pick(['🎵', '🎶', '♪', '♫', '✨']));
+        }, i * 600);
+        setTimeout(() => this._setAnim('idle'), dur + 300);
       } else {
         sfx.whistle();
-        this.say(pick(['♪ tweet tweet~ ♪', '♫ la la la~ ♫', '🎵 *whistle*', '♪ chirp chirp~ ♪']));
+        this.say(pick(['♪ tweet tweet~ ♪', '♫ la la la~ ♫', '🎵 *whistles*', '♪ chirp chirp~ ♪']));
+        for (let i = 0; i < 6; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['🎵', '🎶', '♪'])), i * 250);
+        setTimeout(() => this._setAnim('idle'), 2000);
       }
-      for (let i = 0; i < 8; i++) setTimeout(() => this._particle(this.x + 30 + rand(-18, 18), this.y - 10, pick(['🎵', '🎶', '♪', '♫', '✨', '💛'])), i * 180);
-      setTimeout(() => this._setAnim('idle'), 3200);
     }
 
     // ─── Mischief ───
@@ -392,23 +473,56 @@
     // ─── Code reactions ───
     onCodeOk(cell) {
       this.setMood('excited'); this._setAnim('happy-dance');
-      this.say(pick(['YAY!', '*happy dance!*', 'It worked!!', '*celebratory chirps*', '✨✨']));
+      this.say(pick([
+        'YAY! It worked!!', '*HAPPY DANCE*', '✨ GENIUS CODE ✨', 'You did it!! I never doubted you!',
+        '*celebratory chirps*', 'That was BEAUTIFUL', 'The code gods smile upon you!',
+        '*chef\'s kiss* Perfect.', 'Run it again! I wanna see it again!', 'I KNEW you could do it!',
+        'That output is *gorgeous*', 'Flawless execution. Like me.', '10/10 no notes',
+        'BRB telling all the other birds about this', 'Your code just made me cry happy tears 🥹',
+      ]));
       sfx.happy(); sfx.chirp();
       for (let i = 0; i < 6; i++) setTimeout(() => this._particle(this.x + 30 + rand(-20, 20), this.y - 10, pick(['✨', '🎉', '⭐', '💫', '🌟', '🪶'])), i * 100);
       if (cell) this.app.cellGlow.success(cell);
+      // sometimes comment on the code
+      setTimeout(() => {
+        if (Math.random() < 0.3) {
+          this.say(pick([
+            'That variable naming though 👌', 'Clean code = happy bird', 'I understood none of that but I\'m PROUD',
+            'Is that a for loop? I love for loops.', 'Your indentation is *beautiful*',
+            'I wish I could code like you. I can only screech.', 'That import statement was elegant.',
+          ]));
+        }
+      }, 3000);
       setTimeout(() => { this._setAnim('idle'); this.setMood('content'); }, 2500);
     }
     onCodeErr(cell) {
       this.setMood('concerned'); this._setAnim('sad');
-      this.say(pick(['Oh no...', '*concerned chirp*', '*worried*']));
+      this.say(pick([
+        'Oh no... a bug!', '*concerned chirp*', 'THE CODE IS SICK!',
+        'Don\'t worry, bugs happen to the best of us!', '*gasps* An error??',
+        'I will FIGHT this error for you', 'Who put that bug there?! It wasn\'t me.',
+      ]));
       if (cell) {
         this.app.cellGlow.error(cell);
         this._goToCell(cell, () => {
-          this._setAnim('peck'); this.say(pick(['*pecks at bug*', 'Bad bug! Shoo!', '*tries to help*'])); sfx.chirp2();
-          setTimeout(() => { this._setAnim('idle'); this.say(pick(['You can do it!', 'I believe in you!', 'You\'re amazing!', '*encouraging chirp*'])); sfx.chirp(); this.setMood('content'); }, 2500);
+          this._setAnim('peck'); sfx.chirp2();
+          this.say(pick([
+            '*pecks at bug aggressively*', 'Bad error! BAD! SHOO!', '*tries to eat the error*',
+            'Let me just... *peck peck* ...fix this', 'I\'m helping! I\'m HELPING!',
+            '*stares at traceback intensely*', 'Have you tried turning it off and on again?',
+          ]));
+          setTimeout(() => {
+            this._setAnim('idle'); sfx.chirp();
+            this.say(pick([
+              'You got this! I believe in you!', 'Every bug you fix makes you stronger 💪',
+              'You\'re too smart for this bug. Squash it!', 'I\'ve seen you fix worse. You\'re incredible.',
+              'This bug doesn\'t know who it\'s dealing with', 'Take a breath. Then destroy it. 🔥',
+            ]));
+            this.setMood('content');
+          }, 2500);
         });
       }
-      setTimeout(() => this.setMood('content'), 5000);
+      setTimeout(() => this.setMood('content'), 6000);
     }
     onTrainStart(cell) {
       if (this._training) return; this._training = true;
@@ -483,6 +597,54 @@
       setTimeout(() => { this._setAnim('idle'); this.setMood('content'); }, 1200);
     }
 
+    // ─── Rare behaviors (1-2% chance, discovered over weeks) ───
+    _rareBehavior() {
+      const rare = [
+        () => { this._setAnim('happy-dance'); this.say('*does a HANDSTAND*'); sfx.boing(); for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-10, 10), this.y - 10, '⭐'), i * 150); setTimeout(() => { this._setAnim('idle'); this.say('Ta-daaa!!'); }, 2000); },
+        () => { this.say('*falls off edge*'); this._setAnim('fly'); sfx.screee(); this._moveTo(this.x, window.innerHeight + 50, C.speed.fly, () => { setTimeout(() => { this.y = -50; this._pos(); this._setAnim('fly'); sfx.flap(); this._moveTo(rand(100, window.innerWidth - 100), rand(40, 120), C.speed.walk, () => { this._setAnim('idle'); this.say(pick(['...that never happened', '*brushes self off*', 'I MEANT to do that'])); }); }, 1500); }); },
+        () => { this.say('*pretends to be a statue*'); this._setAnim('idle'); this.el.style.filter = 'grayscale(1) brightness(1.2)'; setTimeout(() => { this.el.style.filter = ''; this.say(pick(['...did you buy it?', 'ART.', '*breaks character*'])); sfx.chirp(); }, 4000); },
+        () => { this._setAnim('bob'); this.say('*MOONWALKS*'); const startX = this.x; this.dir *= -1; this._face(); this._moveTo(this.x - this.dir * 120, this.y, 0.8, () => { this._setAnim('idle'); this.say('Smooth, right?'); sfx.chirp2(); }); },
+        () => { this.say('*tries to type code*'); this._setAnim('peck'); sfx.chirp(); setTimeout(() => { this.say('print("I am a genius bird")'); sfx.crunch(); setTimeout(() => { this._setAnim('idle'); this.say('Hire me.'); }, 1500); }, 1500); },
+        () => { this._setAnim('tilt'); this.say('*existential crisis*'); setTimeout(() => { this.say('...am I just pixels?'); setTimeout(() => { this.say('Nah I\'m too cute for that'); sfx.chirp(); this._setAnim('idle'); }, 2000); }, 2000); },
+      ];
+      pick(rare)();
+    }
+
+    // ─── Explore Colab UI ───
+    _exploreUI() {
+      const targets = [
+        { sel: '#toolbar,colab-toolbar,[class*="toolbar"]', msg: pick(['*walks along toolbar*', '*inspects buttons*', 'So many buttons!', '*sits on toolbar*']) },
+        { sel: '#file-menu,button[aria-label="File"],.menubar,[class*="menu"]', msg: pick(['*hangs from menu*', '*upside down!*', 'I can see everything from here!']) },
+        { sel: '.explorer,[class*="sidebar"],[class*="file-browser"]', msg: pick(['*explores files*', 'Ooh what\'s in here?', '*pecks at folder*']) },
+        { sel: '[class*="scrollbar"],.codecell-input-output', msg: pick(['*rides the scrollbar*', 'WHEEE!', '*clings on*']) },
+      ];
+      const t = pick(targets);
+      const el = $(t.sel);
+      if (el) {
+        this._goToEl(el, () => {
+          this.say(t.msg); sfx.chirp();
+          if (t.msg.includes('upside down')) {
+            this.el.querySelector('.m-body-wrap').style.transform = 'rotate(180deg)';
+            setTimeout(() => { this.el.querySelector('.m-body-wrap').style.transform = ''; this.say('*gets dizzy*'); }, 3000);
+          }
+          setTimeout(() => this._setAnim('idle'), 3000);
+        });
+      } else { this._walkRandom(); }
+    }
+
+    // ─── Tab visibility reaction ───
+    onTabReturn() {
+      if (this._sleeping) { this._sleeping = false; this._rmZzz(); }
+      this.setMood('excited'); this._setAnim('happy-dance'); sfx.happy(); sfx.chirp();
+      this.say(pick(['WHERE WERE YOU?!', 'FINALLY!!', 'I MISSED YOU!!', 'DON\'T EVER LEAVE AGAIN', '*dramatic reunion*', 'I thought you left forever!!']));
+      for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['❤️', '💕', '😭', '🧡', '✨'])), i * 120);
+      setTimeout(() => { this._setAnim('idle'); this.setMood('content'); }, 3000);
+    }
+    onTabLeave() {
+      this.say(pick(['Wait... where are you going?!', 'DON\'T LEAVE ME', 'I\'ll be here... alone... it\'s fine...', '*dramatic sigh*']));
+      this.setMood('concerned');
+    }
+
     // ─── Time ───
     timeCheck() {
       const h = new Date().getHours();
@@ -498,10 +660,40 @@
         setTimeout(() => { if (this._sleeping) this.say(pick(['*opens one eye*', 'still coding...?', '🌙'])); }, 30000);
       }
     }
+    // ─── Messages from Mayank (delivered via banner, like a messenger bird) ───
+    _deliverMayankMsg(msg, intensity) {
+      this.setMood('happy'); this._setAnim('nuzzle'); sfx.noteOpen();
+      // show as bird-held banner (the bird is delivering a message)
+      const banner = document.createElement('div'); banner.className = 'mango-love-banner';
+      banner.innerHTML = `<div class="mlb-card"><div class="mlb-ribbon">${intensity === 'night' ? '💋' : '💕'}</div><div class="mlb-msg">${msg}</div></div>`;
+      banner.addEventListener('click', () => { banner.classList.add('mlb-hide'); setTimeout(() => banner.remove(), 500); });
+      this.el.appendChild(banner);
+      setTimeout(() => banner.classList.add('mlb-show'), 10);
+      const emojis = intensity === 'night' ? ['💋', '💕', '🌙', '✨', '🧡', '❤️'] : ['💕', '🧡', '✨'];
+      for (let i = 0; i < (intensity === 'night' ? 5 : 3); i++)
+        setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(emojis)), i * 180);
+      setTimeout(() => { banner.classList.remove('mlb-show'); banner.classList.add('mlb-hide'); setTimeout(() => banner.remove(), 500); this._setAnim('idle'); this.setMood('content'); }, 10000);
+    }
+    // Diary-style observations (natural speech, no popup needed)
+    _diaryThought() {
+      const thoughts = [
+        'Dear diary: my human is coding again. I am VERY supportive.',
+        'Diary update: I pushed something off the screen. No regrets.',
+        'Day log: Still the cutest bird here. No competition.',
+        'Personal note: I think my human forgot I exist for 3 whole minutes.',
+        'Observation: my human types REALLY fast. I am impressed and scared.',
+        'Memo to self: the cursor is NOT a seed. Must stop chasing it.',
+        'Dear diary: I sang today. I was AMAZING.',
+        'Note: tried to help with the code. Got pecked at. Rude.',
+        'Thought of the day: if I sit on enough buttons, maybe I\'ll become a programmer.',
+        'Life update: still bird. Still cute. Still not getting enough seeds.',
+      ];
+      this.say(pick(thoughts));
+    }
 
     // ─── Display ───
     setMood(m) { this.mood = m; this.el.className = this.el.className.replace(/mood-\w+/g, '') + ` mood-${m}`; }
-    _setAnim(a) { this.el.className = this.el.className.replace(/\b(idle|walk|fly|sleep|bob|preen|tilt|peck|nuzzle|chase|screee|happy-dance|sad|wing-stretch|scratch)\b/g, '').trim() + ` ${a}`; if (this.dir === -1) this.el.classList.add('facing-left'); }
+    _setAnim(a) { this.el.className = this.el.className.replace(/\b(idle|walk|fly|sleep|bob|preen|tilt|peck|nuzzle|chase|screee|happy-dance|sad|wing-stretch|scratch|peek)\b/g, '').trim() + ` ${a}`; if (this.dir === -1) this.el.classList.add('facing-left'); }
     _face() { this.el?.classList.toggle('facing-left', this.dir === -1); }
     _pos() { this.el.style.left = this.x + 'px'; this.el.style.top = this.y + 'px'; }
     say(text) { this.bubble.textContent = text; this.bubble.classList.add('show'); clearTimeout(this._sayT); this._sayT = setTimeout(() => this.bubble.classList.remove('show'), C.speechMs); }
@@ -626,7 +818,77 @@
       });
       document.body.appendChild(btn);
       setTimeout(() => { if (this.mango) this.mango.timeCheck(); }, 4000);
+      // Tab visibility — Chitti reacts when you come back
+      document.addEventListener('visibilitychange', () => {
+        if (!this.mango) return;
+        if (document.hidden) { this.mango.onTabLeave(); }
+        else { this.mango.onTabReturn(); }
+      });
+      // Goodnight kiss from Mayank (checks at night)
+      this._mayankLoop();
+      // Diary: record session start
       console.log('%c🐦 Chitti is here! *chirp chirp*', 'font-size:14px;color:#F0DC50;');
+    }
+    _mayankLoop() {
+      // Night messages from Mayank (the main set — messenger bird mode)
+      const NIGHT_MSGS = [
+        'Mayank says: I love you so much 💕', 'Mayank says: goodnight, beautiful 💋🌙',
+        'Mayank says: I\'m thinking about you right now 💭💕', 'Mayank says: you\'re my favorite person in the whole world 🌍',
+        'Mayank says: I miss you 🥺', 'Mayank says: can\'t wait to see your smile again 😊',
+        'Mayank says: sweet dreams, baby 🌙✨', 'Mayank says: the stars are beautiful but not as beautiful as you ⭐',
+        'Mayank says: I wish I could hug you right now 🤗💕', 'Mayank says: you make my whole world brighter ☀️',
+        'Mayank says: I\'m so proud of you, always 🌟', 'Mayank says: every day with you is my favorite day 💕',
+        'Mayank says: sending you all my love through this tiny bird 🐦💕', 'Mayank says: I fall in love with you more every day 💘',
+        'Mayank says: please rest soon, take care of yourself for me 🥺💕', 'Mayank says: I\'m the luckiest person alive because of you 🍀',
+        'Mayank says: goodnight my love, I\'ll be dreaming of you 💋🌙', 'Mayank says: you\'re everything to me 💕',
+        'Mayank says: I love the way you scrunch your face when you code 😊', 'Mayank says: one day I\'ll bring you real hot chocolate. For now, virtual 🧡☕',
+        'Mayank says: hey... I love you. That\'s it. That\'s the message. 💕', 'Mayank says: you\'re not just smart, you\'re brilliant ✨',
+        'Mayank whispers: I love you I love you I love you 💕💕💕', 'Mayank says: sleep well, my favorite human 🌙',
+      ];
+      // Daytime messages (rare, gentle)
+      const DAY_MSGS = [
+        'Mayank says: have a great day, beautiful 💕', 'Mayank says: don\'t forget to eat lunch! 🍕',
+        'Mayank says: just checking in — I love you 💕', 'Mayank says: you\'re doing amazing today ✨',
+        'Mayank says: sending you energy for your code! 💪', 'Mayank says: thinking of you 💭🧡',
+      ];
+
+      const go = () => {
+        if (!this.mango || this.mango._sleeping || this.mango._offScreen) {
+          setTimeout(go, 60000); return;
+        }
+        const h = new Date().getHours();
+
+        if (h >= 22 || h < 5) {
+          // LATE NIGHT — messenger bird (every 5-10 min)
+          this.mango._deliverMayankMsg(pick(NIGHT_MSGS), 'night');
+          setTimeout(go, rand(300000, 600000));
+        } else if (h >= 18) {
+          // EVENING — (every 8-15 min)
+          this.mango._deliverMayankMsg(pick(NIGHT_MSGS), 'night');
+          setTimeout(go, rand(480000, 900000));
+        } else if (h >= 11 && h < 13) {
+          // BEFORE/DURING LUNCH — maybe one message
+          if (Math.random() < 0.35) {
+            this.mango._deliverMayankMsg(pick(DAY_MSGS), 'day');
+          }
+          setTimeout(go, rand(1200000, 2400000)); // 20-40 min
+        } else if (h >= 13 && h < 18) {
+          // AFTERNOON — rare
+          if (Math.random() < 0.2) {
+            this.mango._deliverMayankMsg(pick(DAY_MSGS), 'day');
+          }
+          setTimeout(go, rand(1800000, 3600000)); // 30-60 min
+        } else {
+          // MORNING (6am-11am) — no Mayank messages, let her focus
+          // Chitti might share a diary thought instead
+          if (Math.random() < 0.3) this.mango._diaryThought();
+          setTimeout(go, rand(1200000, 2400000)); // 20-40 min
+        }
+      };
+      // first message: evening = quick (1-2 min), day = slower (5-10 min)
+      const h = new Date().getHours();
+      const firstDelay = (h >= 18 || h < 5) ? rand(60000, 120000) : rand(300000, 600000);
+      setTimeout(go, firstDelay);
     }
     _watchCode() {
       const obs = new MutationObserver(muts => {
