@@ -5,10 +5,10 @@
 (function () {
   'use strict';
   const C = {
-    speed: { walk: 1.2, run: 3, fly: 5 },
-    tick: [2000, 5500], sleepAfter: 75000, speechMs: 3500, cursorDist: 125,
-    vol: 0.09, poopChance: 0.03, giftChance: 0.06, flockChance: 0.03,
-    mischief: 0.25, noteInterval: [150000, 280000], singChance: 0.25,
+    speed: { walk: 1.5, run: 3.5, fly: 5.5 },
+    tick: [1500, 3500], sleepAfter: 90000, speechMs: 3000, cursorDist: 125,
+    vol: 0.05, poopChance: 0.03, giftChance: 0.06, flockChance: 0.03,
+    mischief: 0.25, noteInterval: [200000, 360000], singChance: 0.25, soundChance: 0.4,
   };
   const rand = (a, b) => Math.random() * (b - a) + a;
   const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -19,16 +19,71 @@
   document.addEventListener('mousemove', e => { mVx = e.clientX - pMx; mVy = e.clientY - pMy; pMx = mx; pMy = my; mx = e.clientX; my = e.clientY; });
 
   // ═══ SOUNDS ═══
+  const soundURL = f => chrome.runtime.getURL('sounds/' + f);
   class Sfx {
-    constructor() { this.ctx = null; this._amb = null; }
-    _i() { if (!this.ctx) try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return false; } if (this.ctx.state === 'suspended') this.ctx.resume(); return true; }
+    constructor() {
+      this.ctx = null; this._amb = null; this._audioCache = {};
+      // create AudioContext on first user gesture so it's never suspended
+      const wake = () => {
+        if (!this.ctx) try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+        if (this.ctx?.state === 'suspended') this.ctx.resume().catch(() => {});
+        document.removeEventListener('pointerdown', wake);
+        document.removeEventListener('keydown', wake);
+      };
+      document.addEventListener('pointerdown', wake);
+      document.addEventListener('keydown', wake);
+    }
+    _i() { if (!this.ctx) try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return false; } if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); return this.ctx.state !== 'closed'; }
     // basic tone (for UI sounds)
     _t(type, f, d, v) { if (!this._i()) return; const t = this.ctx.currentTime, o = this.ctx.createOscillator(), g = this.ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f[0], t); for (let i = 1; i < f.length; i++) o.frequency.exponentialRampToValueAtTime(f[i], t + d * i / f.length); g.gain.setValueAtTime(v || C.vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + d); o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(t + d); }
-    chirp() { this._t('sine', [1400, 2200, 1600], 0.18, 0.08); }
-    chirp2() { this._t('sine', [1800, 2400, 1200], 0.22, 0.07); }
-    chirp3() { this._t('sine', [1000, 1600, 1000], 0.15, 0.06); }
-    happy() { [1000, 1200, 1400, 1600, 1800, 2000].forEach((n, i) => setTimeout(() => this._t('sine', [n, n * 1.15], 0.1, 0.06), i * 70)); }
-    screee() { this._t('sawtooth', [2000, 3200], 0.28, 0.13); }
+    // cockatiel whistle note — vibrato + sharp attack + harmonic brightness
+    _bird(f, dur, vol) {
+      if (!this._i()) return; const t = this.ctx.currentTime, v = vol || 0.055, d = dur || 0.16;
+      // main tone
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.type = 'sine';
+      // vibrato LFO (~25Hz wobble, subtle pitch variation like a real bird)
+      const lfo = this.ctx.createOscillator(), lfoG = this.ctx.createGain();
+      lfo.frequency.value = 25 + Math.random() * 8;
+      lfoG.gain.value = f * 0.012;
+      lfo.connect(lfoG); lfoG.connect(o.frequency);
+      // sharp chirpy attack — start higher, drop to note
+      o.frequency.setValueAtTime(f * 1.1, t);
+      o.frequency.exponentialRampToValueAtTime(f, t + 0.015);
+      // gain: instant attack, slight swell, clean decay
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.linearRampToValueAtTime(v, t + 0.006);
+      g.gain.setValueAtTime(v * 0.95, t + d * 0.6);
+      g.gain.exponentialRampToValueAtTime(0.001, t + d);
+      o.connect(g); g.connect(this.ctx.destination);
+      lfo.start(t); o.start(t); o.stop(t + d); lfo.stop(t + d);
+      // breathy harmonic overtone (3rd partial, quieter) for that airy whistle quality
+      const o2 = this.ctx.createOscillator(), g2 = this.ctx.createGain();
+      o2.type = 'sine'; o2.frequency.setValueAtTime(f * 3.01, t);
+      g2.gain.setValueAtTime(v * 0.08, t);
+      g2.gain.exponentialRampToValueAtTime(0.001, t + d * 0.4);
+      o2.connect(g2); g2.connect(this.ctx.destination);
+      o2.start(t); o2.stop(t + d * 0.4);
+    }
+    // play real audio file
+    _playFile(name, vol) {
+      try {
+        if (this._audioCache[name]) { this._audioCache[name].pause(); this._audioCache[name].currentTime = 0; }
+        const a = new Audio(soundURL(name));
+        a.volume = vol || 0.15; a.play().catch(() => {});
+        this._audioCache[name] = a;
+      } catch (e) {}
+    }
+    // real cockatiel sounds!
+    realChirp() { this._playFile(pick(['chirp1.mp3', 'chirp2.mp3']), 0.35); }
+    realSing() { this._playFile('singing.mp3', 0.3); }
+    realSquawk() { this._playFile('squawk.mp3', 0.3); }
+    realParrot() { this._playFile('parrot.mp3', 0.3); }
+    chirp() { if (Math.random() > C.soundChance) return; this._t('sine', [1400, 2200, 1600], 0.18, 0.08); }
+    chirp2() { if (Math.random() > C.soundChance) return; this._t('sine', [1800, 2400, 1200], 0.22, 0.07); }
+    chirp3() { if (Math.random() > C.soundChance) return; this._t('sine', [1000, 1600, 1000], 0.15, 0.06); }
+    happy() { if (Math.random() > C.soundChance) return; [1000, 1200, 1400, 1600, 1800, 2000].forEach((n, i) => setTimeout(() => this._t('sine', [n, n * 1.15], 0.1, 0.06), i * 70)); }
+    screee() { if (Math.random() > C.soundChance) return; this._t('sawtooth', [2000, 3200], 0.28, 0.13); }
     crunch() { this._t('triangle', [400, 200], 0.04, 0.08); setTimeout(() => this._t('triangle', [350, 180], 0.04, 0.07), 50); }
     pop() { this._t('sine', [600, 1200], 0.04, 0.06); }
     sparkle() { this._t('sine', [2500, 3500, 2000], 0.16, 0.04); }
@@ -40,42 +95,37 @@
     // simple random whistle
     whistle() {
       const m = pick([
-        [[800, 0], [1000, 130], [900, 260], [1100, 390], [1000, 520], [1200, 650], [1000, 780]],
-        [[600, 0], [800, 110], [1000, 220], [1200, 330], [1000, 440], [800, 550], [1000, 660]],
-        [[1000, 0], [1200, 100], [1400, 200], [1200, 300], [1000, 400], [1200, 500], [1400, 600], [1600, 700]],
+        [[1600, 0], [2000, 120], [1800, 240], [2200, 360], [2000, 480], [2400, 600], [2000, 720]],
+        [[1200, 0], [1600, 100], [2000, 200], [2400, 300], [2000, 400], [1600, 500], [2000, 600]],
+        [[2000, 0], [2400, 90], [2800, 180], [2400, 280], [2000, 380], [2400, 480], [2800, 580], [3200, 680]],
+        [[1800, 0], [2200, 110], [1800, 220], [2600, 350], [2200, 470], [1800, 590], [2200, 700]],
       ]);
-       m.forEach(([f, t]) => setTimeout(() => this._t('sine', [f, f * 1.05], 0.14, 0.06), t));  
+      m.forEach(([f, t]) => setTimeout(() => this._t('sine', [f, f * 1.06, f], 0.12, 0.06), t));
     }
     // ♪ Famous songs cockatiels love to whistle — slow, proper melodies ♪
     song() {
       const songs = [
+        // ─── Harry Potter (priority — included twice) ───
         {
-          name: 'Hedwig\'s Theme ⚡', notes: [ // Harry Potter
+          name: 'Hedwig\'s Theme ⚡', notes: [
             [494, 0], [659, 400], [784, 700], [740, 1000], [659, 1400], [988, 1800], [880, 2300],
             [740, 3000], [659, 3700], [784, 4100], [740, 4400], [622, 4800], [698, 5200], [494, 5700]
           ]
         },
+        {
+          name: 'Hedwig\'s Theme ⚡', notes: [
+            [494, 0], [659, 400], [784, 700], [740, 1000], [659, 1400], [988, 1800], [880, 2300],
+            [740, 3000], [659, 3700], [784, 4100], [740, 4400], [622, 4800], [698, 5200], [494, 5700]
+          ]
+        },
+        // ─── Movie & TV themes ───
         {
           name: 'He\'s a Pirate 🏴‍☠️', notes: [ // Pirates of the Caribbean
             [587, 0], [587, 200], [587, 400], [622, 650], [698, 850],
             [698, 1200], [698, 1400], [622, 1650], [698, 1850], [784, 2050],
             [784, 2400], [784, 2600], [740, 2850], [784, 3050], [880, 3250],
             [587, 3650], [587, 3850], [587, 4050], [622, 4300], [698, 4500],
-            [698, 4850], [698, 5050], [622, 5300], [698, 5500], [587, 5700],
-            [587, 6100], [587, 6400]
-          ]
-        },
-        {
-          name: 'Twinkle Twinkle ⭐', notes: [
-            [523, 0], [523, 400], [784, 800], [784, 1200], [880, 1600], [880, 2000], [784, 2500],
-            [698, 3000], [698, 3400], [659, 3800], [659, 4200], [587, 4600], [587, 5000], [523, 5500]
-          ]
-        },
-        {
-          name: 'Happy Birthday 🎂', notes: [
-            [392, 0], [392, 250], [440, 550], [392, 900], [523, 1250], [494, 1650],
-            [392, 2200], [392, 2450], [440, 2750], [392, 3100], [587, 3450], [523, 3850],
-            [392, 4400], [392, 4650], [784, 4950], [659, 5350], [523, 5700], [494, 6050], [440, 6400]
+            [698, 4850], [698, 5050], [622, 5300], [698, 5500], [587, 5700]
           ]
         },
         {
@@ -92,11 +142,144 @@
           ]
         },
         {
-          name: 'My Heart Will Go On 💙', notes: [ // Titanic
-            [659, 0], [659, 400], [659, 800], [587, 1100], [659, 1400],
-            [698, 1800], [659, 2200], [587, 2550], [523, 2900],
-            [587, 3400], [659, 3800], [659, 4200], [587, 4500], [523, 4800],
-            [587, 5200], [659, 5600], [698, 6000], [659, 6400]
+          name: 'Nokia Tune 📱', notes: [
+            [659, 0], [587, 150], [349, 350], [392, 550],
+            [523, 750], [494, 900], [330, 1100], [349, 1300],
+            [494, 1500], [440, 1650], [262, 1850], [330, 2050], [440, 2350]
+          ]
+        },
+        // ─── Pop hits she knows ───
+        {
+          name: 'Espresso ☕', notes: [ // Sabrina Carpenter — "I'm working late"
+            [659, 0], [659, 200], [523, 400], [784, 650], [784, 850], [880, 1050], [523, 1300], [587, 1500], [523, 1700]
+          ]
+        },
+        {
+          name: 'Cruel Summer 🔥', notes: [ // Taylor Swift
+            [659, 0], [554, 300], [494, 550], [440, 800], [494, 1100],
+            [440, 1400], [440, 1600], [440, 1800], [494, 2000], [554, 2200],
+            [494, 2500], [494, 2700], [494, 2900], [554, 3100], [494, 3300], [440, 3500], [440, 3700]
+          ]
+        },
+        {
+          name: 'Anti-Hero 😈', notes: [ // Taylor Swift — "It's me, hi"
+            [659, 0], [831, 300], [831, 550],
+            [740, 800], [740, 1000], [740, 1200], [659, 1400], [659, 1600], [659, 1800],
+            [659, 2100], [831, 2350], [831, 2600], [740, 2850], [740, 3050], [740, 3250], [659, 3450], [659, 3650]
+          ]
+        },
+        {
+          name: 'Love Story 💕', notes: [ // Taylor Swift
+            [587, 0], [659, 300], [784, 600], [659, 900], [587, 1200], [523, 1500],
+            [587, 1900], [659, 2200], [784, 2500], [880, 2800], [784, 3100],
+            [659, 3500], [587, 3800], [659, 4100], [784, 4400], [659, 4700]
+          ]
+        },
+        {
+          name: 'Shake It Off 💃', notes: [ // Taylor Swift
+            [523, 0], [523, 200], [587, 400], [659, 600], [659, 800], [659, 1000],
+            [587, 1250], [523, 1450], [523, 1650], [587, 1850], [659, 2050],
+            [523, 2350], [523, 2550], [587, 2750], [659, 2950], [659, 3150], [659, 3350],
+            [784, 3600], [659, 3850], [587, 4100], [523, 4350]
+          ]
+        },
+        {
+          name: 'Blinding Lights ✨', notes: [ // The Weeknd
+            [466, 0], [349, 200], [349, 400], [349, 500], [392, 650], [349, 800], [311, 1000], [311, 1200], [262, 1400], [311, 1600], [262, 1800],
+            [311, 2100], [466, 2350], [392, 2550], [349, 2750], [311, 2950], [466, 3200], [392, 3400], [349, 3600]
+          ]
+        },
+        {
+          name: 'Shape of You 💜', notes: [ // Ed Sheeran
+            [277, 0], [277, 200], [277, 400], [277, 550], [370, 700], [415, 900], [415, 1100], [370, 1300],
+            [370, 1500], [370, 1700], [370, 1900], [370, 2050], [370, 2200], [370, 2400], [370, 2600], [330, 2800], [277, 3000]
+          ]
+        },
+        {
+          name: 'Levitating 🪩', notes: [ // Dua Lipa
+            [587, 0], [587, 200], [740, 400], [659, 600], [659, 750], [659, 900], [659, 1050], [659, 1200], [659, 1350],
+            [587, 1550], [587, 1750], [740, 1950], [659, 2150], [659, 2300], [659, 2450], [659, 2600], [659, 2750], [587, 2950], [494, 3150]
+          ]
+        },
+        {
+          name: 'Someone Like You 🥺', notes: [ // Adele
+            [659, 0], [554, 300], [494, 550], [370, 800], [659, 1100], [659, 1350], [659, 1550], [659, 1750], [587, 1950], [554, 2150],
+            [554, 2450], [554, 2650], [370, 2850], [370, 3050], [440, 3250], [370, 3450]
+          ]
+        },
+        // ─── Iconic classics ───
+        {
+          name: 'Bohemian Rhapsody 👑', notes: [ // Queen — "Mama, ooo"
+            [784, 0], [784, 250], [698, 500], [784, 750], [831, 1000], [784, 1300],
+            [784, 1600], [784, 1850], [831, 2100], [784, 2350], [784, 2600], [698, 2850], [698, 3100]
+          ]
+        },
+        {
+          name: 'Dancing Queen 👸', notes: [ // ABBA
+            [659, 0], [740, 250], [831, 500], [831, 700], [880, 900], [880, 1150],
+            [831, 1400], [880, 1600], [880, 1850],
+            [988, 2100], [880, 2350], [831, 2600], [880, 2800], [880, 3050]
+          ]
+        },
+        {
+          name: 'Stayin\' Alive 🕺', notes: [ // Bee Gees
+            [349, 0], [349, 200], [349, 400], [415, 600], [349, 800], [311, 1050], [262, 1250],
+            [349, 1550], [349, 1750], [349, 1950], [415, 2150], [349, 2350], [311, 2550], [262, 2750],
+            [415, 3050], [466, 3250], [415, 3450], [349, 3650], [415, 3850], [349, 4050]
+          ]
+        },
+        {
+          name: 'Take On Me 🎹', notes: [ // A-ha — synth riff
+            [740, 0], [740, 150], [587, 300], [494, 500], [494, 650], [659, 850], [659, 1000], [659, 1150],
+            [831, 1350], [831, 1500], [880, 1700], [988, 1900], [880, 2100], [880, 2250], [880, 2400],
+            [659, 2600], [587, 2800], [740, 3000], [740, 3150], [740, 3300], [659, 3500], [659, 3650], [740, 3850], [659, 4050]
+          ]
+        },
+        // ─── Michael Jackson ───
+        {
+          name: 'Billie Jean 🕺', notes: [
+            [370, 0], [370, 250], [370, 500], [370, 750], [330, 1000], [370, 1250],
+            [370, 1500], [370, 1750], [370, 2000], [370, 2250], [330, 2500], [370, 2750],
+            [440, 3100], [415, 3350], [370, 3600], [330, 3850], [370, 4100]
+          ]
+        },
+        {
+          name: 'Beat It 🥊', notes: [
+            [659, 0], [659, 200], [659, 400], [659, 600], [587, 800], [659, 1050],
+            [659, 1300], [587, 1500], [523, 1750], [587, 2000],
+            [659, 2400], [659, 2600], [659, 2800], [587, 3000], [523, 3250], [587, 3500],
+            [659, 3800], [784, 4100], [659, 4400]
+          ]
+        },
+        {
+          name: 'Thriller 🧟', notes: [
+            [392, 0], [440, 250], [466, 500], [440, 750], [392, 1000], [440, 1250], [466, 1500],
+            [523, 1800], [466, 2100], [440, 2400], [392, 2700],
+            [392, 3100], [440, 3350], [466, 3600], [440, 3850], [392, 4100], [349, 4400]
+          ]
+        },
+        // ─── More favorites ───
+        {
+          name: 'Fast Car 🚗', notes: [ // Tracy Chapman
+            [523, 0], [659, 350], [784, 700], [659, 1050], [523, 1400],
+            [440, 1800], [523, 2150], [659, 2500], [523, 2850],
+            [440, 3250], [392, 3600], [440, 3950], [523, 4300],
+            [659, 4700], [523, 5050], [440, 5400], [392, 5750]
+          ]
+        },
+        {
+          name: 'Happy Birthday 🎂', notes: [
+            [392, 0], [392, 250], [440, 550], [392, 900], [523, 1250], [494, 1650],
+            [392, 2200], [392, 2450], [440, 2750], [392, 3100], [587, 3450], [523, 3850],
+            [392, 4400], [392, 4650], [784, 4950], [659, 5350], [523, 5700], [494, 6050], [440, 6400]
+          ]
+        },
+        {
+          name: 'Super Mario Bros 🍄', notes: [
+            [659, 0], [659, 200], [659, 500], [523, 700], [659, 900], [784, 1250], [392, 1650],
+            [523, 2200], [392, 2550], [330, 2900],
+            [440, 3300], [494, 3600], [466, 3850], [440, 4100],
+            [392, 4400], [659, 4700], [784, 5000], [880, 5300]
           ]
         },
         {
@@ -106,160 +289,61 @@
             [330, 4700], [416, 5000], [494, 5300], [523, 5700]
           ]
         },
+        // ─── Hindi / Bollywood ───
         {
-          name: 'Can Can 💃', notes: [
-            [659, 0], [659, 200], [698, 450], [659, 650], [698, 900], [659, 1100], [523, 1350],
-            [659, 1600], [659, 1800], [698, 2050], [659, 2250], [523, 2500],
-            [587, 2750], [523, 2950], [587, 3200], [659, 3450], [698, 3700],
-            [784, 3950], [698, 4200], [659, 4500], [587, 4800], [523, 5100]
+          name: 'Tum Hi Ho 💕', notes: [ // Aashiqui 2
+            [349, 0], [415, 350], [523, 700], [554, 1050], [415, 1400], [466, 1750], [392, 2100],
+            [415, 2600], [523, 2950], [698, 3300], [622, 3650], [622, 3900], [554, 4150], [554, 4400], [523, 4650], [466, 4900], [415, 5150], [466, 5400], [554, 5700], [523, 6000]
           ]
         },
         {
-          name: 'Jingle Bells 🔔', notes: [
-            [659, 0], [659, 350], [659, 750],
-            [659, 1200], [659, 1550], [659, 1950],
-            [659, 2400], [784, 2750], [523, 3050], [587, 3350], [659, 3800],
-            [698, 4300], [698, 4650], [698, 4950], [698, 5200], [659, 5500], [659, 5800],
-            [659, 6050], [587, 6350], [587, 6650], [659, 6950], [587, 7250], [784, 7600]
+          name: 'Kal Ho Naa Ho 🌅', notes: [
+            [392, 0], [440, 300], [523, 600], [440, 900], [349, 1200], [392, 1500], [440, 1800], [392, 2100],
+            [392, 2600], [523, 2900], [494, 3150], [523, 3400], [494, 3650], [523, 3900], [494, 4150], [523, 4400], [659, 4700], [587, 5000], [523, 5300], [494, 5600], [440, 5900], [494, 6200]
           ]
         },
         {
-          name: 'River Flows in You 🌊', notes: [ // Yiruma
-            [440, 0], [523, 350], [659, 700], [523, 1050], [440, 1400],
-            [523, 1850], [659, 2200], [784, 2550], [659, 2900],
-            [523, 3350], [440, 3700], [523, 4050], [659, 4400],
-            [523, 4750], [440, 5100], [392, 5450], [440, 5800]
+          name: 'Tujhe Dekha To 🎬', notes: [ // DDLJ — iconic
+            [330, 0], [330, 300], [330, 600], [494, 900], [440, 1200], [494, 1500], [392, 1850], [440, 2150], [523, 2450], [494, 2750],
+            [330, 3200], [330, 3500], [330, 3800], [494, 4100], [440, 4400], [494, 4700], [392, 5000], [440, 5300], [392, 5600], [370, 5900]
           ]
         },
         {
-          name: 'Zelda\'s Lullaby 🧝', notes: [
-            [494, 0], [587, 500], [440, 1000],
-            [494, 1700], [587, 2200], [440, 2700],
-            [494, 3400], [587, 3900], [880, 4400], [784, 4900],
-            [587, 5500], [523, 6000], [440, 6500]
-          ]
-        },
-        // ─── Viral cockatiel/parrot songs ───
-        {
-          name: 'Andy Griffith Theme 🎣', notes: [ // THE #1 cockatiel song
-            [392, 0], [523, 400], [659, 700], [523, 1000], [587, 1350], [659, 1650], [587, 2000], [523, 2350],
-            [440, 2700], [392, 3100], [440, 3450], [523, 3800], [587, 4150], [523, 4500], [440, 4850], [392, 5250]
+          name: 'Pehla Nasha 🥰', notes: [ // Jo Jeeta Wohi Sikandar
+            [494, 0], [494, 300], [587, 600], [587, 900], [659, 1250],
+            [494, 1700], [392, 2000], [440, 2300], [587, 2650], [587, 2950], [740, 3250], [784, 3550],
+            [494, 4100], [494, 4400], [587, 4700], [587, 5000], [659, 5300], [587, 5600], [523, 5900], [494, 6200], [440, 6500], [440, 6800], [494, 7100], [440, 7400]
           ]
         },
         {
-          name: 'If You\'re Happy 👏', notes: [
-            [523, 0], [523, 250], [698, 500], [698, 750], [698, 1050], [659, 1300], [698, 1550], [784, 1850],
-            [784, 2250], [784, 2500], [880, 2750], [880, 3050], [880, 3300], [784, 3550], [698, 3850],
-            [659, 4200], [659, 4450], [587, 4700], [587, 5000], [523, 5300]
+          name: 'Kesariya 🧡', notes: [ // Brahmastra
+            [523, 0], [659, 300], [587, 600], [659, 900], [587, 1200], [523, 1500], [494, 1800], [523, 2100],
+            [784, 2500], [784, 2750], [784, 3000], [880, 3300], [784, 3600], [698, 3900], [659, 4200], [587, 4500]
           ]
         },
         {
-          name: 'Super Mario Bros 🍄', notes: [
-            [659, 0], [659, 200], [659, 500], [523, 700], [659, 900], [784, 1250], [392, 1650],
-            [523, 2200], [392, 2550], [330, 2900],
-            [440, 3300], [494, 3600], [466, 3850], [440, 4100],
-            [392, 4400], [659, 4700], [784, 5000], [880, 5300],
-            [698, 5600], [784, 5850], [659, 6150]
+          name: 'Channa Mereya 💔', notes: [ // Ae Dil Hai Mushkil
+            [494, 0], [494, 250], [587, 500], [523, 750], [523, 1000], [523, 1200], [523, 1400], [494, 1650], [587, 1900], [523, 2150], [523, 2400],
+            [440, 2750], [392, 3000], [440, 3250], [440, 3500], [440, 3750], [523, 4000], [494, 4250], [440, 4500], [440, 4750]
           ]
         },
         {
-          name: 'Tetris Theme 🧱', notes: [
-            [659, 0], [494, 250], [523, 450], [587, 650], [523, 850], [494, 1050], [440, 1250],
-            [440, 1500], [523, 1700], [659, 1900], [587, 2100], [523, 2300], [494, 2550],
-            [523, 2800], [587, 3000], [659, 3200], [523, 3400], [440, 3600], [440, 3850],
-            [587, 4200], [698, 4400], [880, 4650], [784, 4900], [698, 5150], [659, 5450],
-            [523, 5700], [659, 5900], [587, 6100], [523, 6300], [494, 6550]
+          name: 'Kun Faya Kun 🕊️', notes: [ // Rockstar
+            [349, 0], [415, 400], [554, 800], [554, 1100], [622, 1400], [523, 1700], [554, 2000], [622, 2300], [523, 2600], [554, 2900], [523, 3200], [466, 3500], [523, 3800],
+            [349, 4300], [415, 4700], [523, 5000], [523, 5300], [622, 5600], [554, 5900], [523, 6200], [466, 6500], [415, 6800], [370, 7100], [349, 7400]
           ]
         },
         {
-          name: 'Ode to Joy 🎻', notes: [
-            [659, 0], [659, 300], [698, 600], [784, 900], [784, 1200], [698, 1500], [659, 1800], [587, 2100],
-            [523, 2500], [523, 2800], [587, 3100], [659, 3400], [659, 3750], [587, 4100], [587, 4500],
-            [659, 5000], [659, 5300], [698, 5600], [784, 5900], [784, 6200], [698, 6500], [659, 6800], [587, 7100]
-          ]
-        },
-        {
-          name: 'Mary Had a Little Lamb 🐑', notes: [
-            [659, 0], [587, 300], [523, 600], [587, 900], [659, 1200], [659, 1500], [659, 1850],
-            [587, 2300], [587, 2600], [587, 2950],
-            [659, 3400], [784, 3700], [784, 4050],
-            [659, 4500], [587, 4800], [523, 5100], [587, 5400], [659, 5700], [659, 6000], [659, 6300],
-            [587, 6650], [587, 6950], [659, 7250], [587, 7550], [523, 7900]
-          ]
-        },
-        {
-          name: 'The Entertainer 🎹', notes: [
-            [587, 0], [659, 120], [523, 250], [440, 400],
-            [494, 600], [523, 750], [587, 900], [659, 1050], [523, 1200], [440, 1400], [494, 1600],
-            [587, 1900], [659, 2050], [523, 2200], [440, 2400],
-            [494, 2600], [659, 2800], [587, 3000], [523, 3200], [440, 3400], [392, 3650]
-          ]
-        },
-        {
-          name: 'La Cucaracha 🪲', notes: [
-            [523, 0], [523, 150], [523, 300], [698, 500], [880, 750],
-            [523, 1200], [523, 1350], [523, 1500], [698, 1700], [880, 1950],
-            [698, 2400], [698, 2550], [659, 2750], [659, 2900], [587, 3100], [587, 3250], [523, 3450]
-          ]
-        },
-        {
-          name: 'Pop Goes the Weasel 🎪', notes: [
-            [523, 0], [587, 250], [659, 500], [523, 800],
-            [523, 1100], [587, 1350], [659, 1650],
-            [523, 1950], [587, 2200], [659, 2450], [698, 2700],
-            [659, 3050], [587, 3350], [523, 3700],
-            [523, 4000], [587, 4250], [659, 4500], [523, 4800],
-            [587, 5100], [659, 5350], [698, 5600], [784, 5900]
-          ]
-        },
-        {
-          name: 'Game of Thrones ⚔️', notes: [
-            [392, 0], [523, 350], [622, 600], [698, 850],
-            [392, 1300], [523, 1650], [622, 1900], [698, 2150],
-            [392, 2600], [523, 2950], [622, 3200], [698, 3450], [784, 3750],
-            [698, 4200], [622, 4500], [523, 4800], [392, 5200]
-          ]
-        },
-        {
-          name: 'Let It Go ❄️', notes: [
-            [392, 0], [440, 350], [494, 700], [494, 1000],
-            [494, 1400], [440, 1650], [392, 1950], [440, 2250],
-            [494, 2650], [659, 2950], [587, 3250], [494, 3550],
-            [440, 3950], [392, 4250], [440, 4550], [494, 4850]
-          ]
-        },
-        {
-          name: 'Baby Shark 🦈', notes: [
-            [523, 0], [587, 200], [698, 400], [698, 550], [698, 700], [698, 850], [698, 1000], [698, 1150], [698, 1300],
-            [523, 1600], [587, 1800], [698, 2000], [698, 2150], [698, 2300], [698, 2450], [698, 2600], [698, 2750], [698, 2900],
-            [523, 3200], [587, 3400], [698, 3600], [698, 3750], [698, 3900], [698, 4050], [698, 4200],
-            [698, 4500], [659, 4700], [587, 4950], [523, 5250]
-          ]
-        },
-        {
-          name: 'Shave and a Haircut 💈', notes: [
-            [523, 0], [392, 250], [392, 500], [440, 750], [392, 1050],
-            [494, 1500], [523, 1800]
-          ]
-        },
-        {
-          name: 'Charge! ⚡', notes: [
-            [392, 0], [494, 200], [587, 400], [784, 600],
-            [587, 900], [784, 1200]
-          ]
-        },
-        {
-          name: 'Nokia Ringtone 📱', notes: [
-            [659, 0], [587, 150], [349, 350], [392, 550],
-            [523, 750], [494, 900], [330, 1100], [349, 1300],
-            [494, 1500], [440, 1650], [262, 1850], [330, 2050],
-            [440, 2350]
+          name: 'Lag Ja Gale 🌙', notes: [ // Lata Mangeshkar classic
+            [294, 0], [494, 400], [440, 700], [494, 1000], [494, 1300], [440, 1550], [494, 1800], [440, 2050], [494, 2350],
+            [494, 2700], [440, 2950], [494, 3200], [440, 3450], [494, 3700], [392, 4000], [440, 4300], [494, 4600], [523, 4900], [494, 5200], [440, 5500], [440, 5800], [370, 6100], [330, 6400], [294, 6700]
           ]
         },
       ];
       const s = pick(songs);
-      // play each note with proper sustain for a whistling cockatiel                                                                                                 
-      s.notes.forEach(([f, t]) => setTimeout(() => this._t('sine', [f, f * 1.02], 0.28, 0.07), t));
+      // chirpy tones — slowed 1.4x for a relaxed, natural bird whistle
+      const tempo = 1.4;
+      s.notes.forEach(([f, t]) => setTimeout(() => this._t('sine', [f * 2, f * 2.05, f * 2], 0.24, 0.05), t * tempo));
       return s;
     }
     ambientStart(type) {
@@ -286,12 +370,15 @@
     'Someone fell in love with you all over again today 💘',
     'Someone would cross oceans just to see you smile 🌊',
     'Someone is dreaming about your future together 💕',
-    // ✨ Encouraging
+    // ✨ Encouraging — Google dream
     'You\'re doing incredible work. Seriously. ✨',
     'That code is looking really good, you know that? 🌟',
     'Every line you write is bringing you closer to something amazing 💪',
     'Bugs are just puzzles, and you\'re great at puzzles 🧩',
-    'Your persistence is genuinely inspiring 🔥',
+    'Google would be lucky to have you. Just saying. 🌈',
+    'Your Keras work is literally changing deep learning. No pressure. ✨',
+    'Future Googler energy detected 💪🔥',
+    'The way you debug is honestly impressive. Keep going. 🧠',
     // 🐦 Chitti personality
     'Chitti thinks you\'re the best human ever. Just saying. 🐦',
     'Chitti would share their favorite seed with you. That\'s the highest honor. 🌻',
@@ -304,18 +391,20 @@
     'You look cute when you concentrate like that 😊',
     'Don\'t forget: you\'re allowed to take breaks 🍵',
     'Your wellbeing matters more than any output cell ❤️',
+    'Is it biryani o\'clock yet? Asking for a bird. 🍗',
     // 🎉 Playful
     'Plot twist: you\'re actually amazing 🎬',
     'Your code is *chef\'s kiss* today 👨‍🍳💋',
-    'If your code were a dish, it\'d be a Michelin star ⭐',
+    'If your code were a dish, it\'d be Telugu Vilas biryani ⭐',
     'Fun fact: you\'ve been awesome this entire time 🏆',
-    'Breaking news: local genius writes incredible code 📰',
+    'Breaking news: Whitefield\'s best coder strikes again 📰',
+    'Your neural network has nothing on your actual brain 🧠',
     // 🌙 Cozy
     'Whatever happens with this code, you are enough 🌈',
     'This notebook is lucky to have you working on it 📓',
     'The world is better because you\'re in it 🌍',
     'You deserve every good thing coming your way 🌸',
-    'Somewhere right now, someone is really proud of you 💖',
+    'Somewhere in Whitefield, a bird is very proud of you 💖',
   ];
   async function fetchNote() {
     try { const r = await chrome.runtime.sendMessage({ action: 'fetchNote' }); if (r?.note) return r.note; } catch (e) { }
@@ -332,23 +421,24 @@
   };
 
   // ═══ COCKATIEL SVG ═══
-  const MANGO = `<svg viewBox="0 0 72 82" xmlns="http://www.w3.org/2000/svg">
+  const MANGO = `<svg viewBox="0 0 80 88" xmlns="http://www.w3.org/2000/svg">
 <defs>
-<radialGradient id="mb"><stop offset="0%" stop-color="#FFF5A0"/><stop offset="100%" stop-color="#F0D840"/></radialGradient>
-<radialGradient id="mc"><stop offset="0%" stop-color="#FF8833" stop-opacity=".85"/><stop offset="100%" stop-color="#FF7722" stop-opacity="0"/></radialGradient>
-<linearGradient id="mw" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#E8D040"/><stop offset="100%" stop-color="#C8B030"/></linearGradient>
+<radialGradient id="mb"><stop offset="0%" stop-color="#FFF8B0"/><stop offset="100%" stop-color="#F0D840"/></radialGradient>
+<radialGradient id="mb2"><stop offset="0%" stop-color="#FFFAC8"/><stop offset="100%" stop-color="#F5E060"/></radialGradient>
+<radialGradient id="mc"><stop offset="0%" stop-color="#FF8833" stop-opacity=".8"/><stop offset="100%" stop-color="#FF6622" stop-opacity="0"/></radialGradient>
+<linearGradient id="mw" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#E0D040"/><stop offset="100%" stop-color="#C0A828"/></linearGradient>
 </defs>
-<g class="m-tail"><path d="M26,60 Q18,74 14,84" stroke="#E0C830" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M30,61 Q24,74 20,86" stroke="#F0D840" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M34,61 Q30,72 28,82" stroke="#E0C830" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M38,60 Q36,70 36,78" stroke="#D8C028" stroke-width="2" fill="none" stroke-linecap="round"/></g>
-<g class="m-body"><ellipse cx="36" cy="48" rx="18" ry="15" fill="url(#mb)"/><ellipse cx="36" cy="50" rx="12" ry="10" fill="#FFFAC0" opacity=".4"/></g>
-<g class="m-wing-l"><path d="M18,40 Q8,44 10,56 Q12,62 20,54 L18,40" fill="url(#mw)"/><line x1="13" y1="48" x2="18" y2="46" stroke="#C8B030" stroke-width=".6" opacity=".5"/><line x1="12" y1="52" x2="19" y2="49" stroke="#C8B030" stroke-width=".6" opacity=".5"/><line x1="13" y1="56" x2="19" y2="52" stroke="#C8B030" stroke-width=".6" opacity=".4"/></g>
-<g class="m-wing-r"><path d="M54,40 Q64,44 62,56 Q60,62 52,54 L54,40" fill="url(#mw)"/><line x1="59" y1="48" x2="54" y2="46" stroke="#C8B030" stroke-width=".6" opacity=".5"/><line x1="60" y1="52" x2="53" y2="49" stroke="#C8B030" stroke-width=".6" opacity=".5"/><line x1="59" y1="56" x2="53" y2="52" stroke="#C8B030" stroke-width=".6" opacity=".4"/></g>
-<g class="m-feet"><path d="M27,62 L24,69 M27,62 L27,69 M27,62 L30,69" stroke="#CC9090" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M45,62 L42,69 M45,62 L45,69 M45,62 L48,69" stroke="#CC9090" stroke-width="1.8" fill="none" stroke-linecap="round"/></g>
+<g class="m-tail"><path d="M30,66 L24,86" stroke="#D0B830" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M34,67 L30,88" stroke="#E0C838" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M38,67 L36,84" stroke="#D0B830" stroke-width="2" fill="none" stroke-linecap="round"/></g>
+<g class="m-body"><ellipse cx="40" cy="54" rx="19" ry="16" fill="url(#mb)"/><ellipse cx="40" cy="56" rx="13" ry="11" fill="#FFFAC0" opacity=".4"/></g>
+<g class="m-wing-l"><path d="M21,46 Q10,50 12,62 Q14,67 22,60 Z" fill="url(#mw)"/><line x1="15" y1="54" x2="20" y2="51" stroke="#B8A020" stroke-width=".5" opacity=".4"/><line x1="14" y1="58" x2="21" y2="55" stroke="#B8A020" stroke-width=".5" opacity=".35"/></g>
+<g class="m-wing-r"><path d="M59,46 Q70,50 68,62 Q66,67 58,60 Z" fill="url(#mw)"/><line x1="65" y1="54" x2="60" y2="51" stroke="#B8A020" stroke-width=".5" opacity=".4"/><line x1="66" y1="58" x2="59" y2="55" stroke="#B8A020" stroke-width=".5" opacity=".35"/></g>
+<g class="m-feet"><path d="M32,69 L29,76 M32,69 L32,76 M32,69 L35,76" stroke="#BB8888" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M48,69 L45,76 M48,69 L48,76 M48,69 L51,76" stroke="#BB8888" stroke-width="1.5" fill="none" stroke-linecap="round"/></g>
 <g class="m-head">
-<circle cx="36" cy="26" r="16" fill="url(#mb)"/>
-<g class="m-crest"><path d="M30,11 Q27,0 25,-6" stroke="#F5E860" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M34,10 Q33,0 32,-5" stroke="#F0D840" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M38,10 Q39,1 40,-4" stroke="#E8D040" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M42,12 Q44,3 47,-2" stroke="#E0C830" stroke-width="2.5" fill="none" stroke-linecap="round"/></g>
-<g class="m-eyes"><ellipse class="eye-l" cx="29" cy="24" rx="3.5" ry="4.2" fill="#1A0A00"/><ellipse class="eye-r" cx="43" cy="24" rx="3.5" ry="4.2" fill="#1A0A00"/><circle class="shine" cx="27.5" cy="22" r="1.6" fill="white"/><circle class="shine" cx="41.5" cy="22" r="1.6" fill="white"/><circle cx="30" cy="25.5" r=".8" fill="white" opacity=".4"/><circle cx="44" cy="25.5" r=".8" fill="white" opacity=".4"/></g>
-<g class="m-beak"><path d="M33,31 Q36,28 39,31" fill="#888" stroke="#666" stroke-width=".6"/><path d="M34,31 Q36,34 38,31" fill="#999" stroke="#777" stroke-width=".4"/><circle cx="34.5" cy="30" r=".6" fill="#555"/></g>
-<g class="m-cheeks"><circle cx="20" cy="29" r="6" fill="url(#mc)"/><circle cx="52" cy="29" r="6" fill="url(#mc)"/></g>
+<circle cx="40" cy="30" r="17" fill="url(#mb2)"/>
+<g class="m-crest"><path d="M38,14 C39,4 43,-4 48,-10" stroke="#F5E860" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M40,14 C42,5 46,-2 52,-7" stroke="#F0D840" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M42,15 C44,6 48,0 54,-4" stroke="#E8D040" stroke-width="2.5" fill="none" stroke-linecap="round"/></g>
+<g class="m-eyes"><circle class="eye-l" cx="34" cy="28" r="4.5" fill="#1A0A00"/><circle class="eye-r" cx="46" cy="28" r="4.5" fill="#1A0A00"/><circle class="shine" cx="32.5" cy="26.5" r="1.8" fill="white"/><circle class="shine" cx="44.5" cy="26.5" r="1.8" fill="white"/><circle cx="35" cy="29.5" r="0.8" fill="white" opacity=".4"/><circle cx="47" cy="29.5" r="0.8" fill="white" opacity=".4"/></g>
+<g class="m-beak"><path d="M37,35 C39,33 41,33 43,35 C42,37 41,38 40,38 C39,38 38,37 37,35 Z" fill="#999" stroke="#777" stroke-width=".4"/><path d="M38.5,36 Q40,37.5 41.5,36" fill="#888" stroke="#666" stroke-width=".3"/><circle cx="38.5" cy="34.5" r=".5" fill="#666"/></g>
+<g class="m-cheeks"><circle cx="25" cy="33" r="6" fill="url(#mc)"/><circle cx="55" cy="33" r="6" fill="url(#mc)"/></g>
 </g></svg>`;
 
   const MANGO_FLY = `<svg viewBox="0 0 90 55" xmlns="http://www.w3.org/2000/svg">
@@ -374,7 +464,9 @@
       this.lastTouch = Date.now(); this.petCount = 0;
       this._dead = false; this._dragging = false; this._dragged = false;
       this._training = false; this._sleeping = false; this._offScreen = false;
-      this._build(); this._enter(); this._blinkLoop(); this._moodDecay(); this._eyeLoop(); this._applyAccessory();
+      this._build(); this._enter(); this._blinkLoop(); this._moodDecay(); this._eyeLoop(); this._applyAccessory(); this._trackCursorStill(); this._wanderLoop();
+      this._resizeHandler = () => { this.x = clamp(this.x, -30, window.innerWidth - 40); this.y = clamp(this.y, 0, window.innerHeight - 60); this._pos(); };
+      window.addEventListener('resize', this._resizeHandler);
     }
     _build() {
       const el = this.el = document.createElement('div');
@@ -386,6 +478,8 @@
       this.eyes = el.querySelectorAll('.eye-l,.eye-r');
       this.shines = el.querySelectorAll('.shine');
       this.eyeG = el.querySelector('.m-eyes');
+      // initialize dataset.o immediately so eye resets are always correct
+      this.eyes.forEach(e => { e.dataset.o = e.getAttribute(this._eyeAttr(e)) || '4.5'; });
       el.addEventListener('click', e => { if (!this._dragged) this._onPet(e); });
       el.addEventListener('dblclick', e => this._onFeed(e));
       el.addEventListener('pointerdown', e => this._dragStart(e));
@@ -394,10 +488,10 @@
       el.addEventListener('mouseenter', () => {
         peekTimer = setTimeout(() => {
           if (!this._sleeping && !this._offScreen && !this._dragging) {
-            this._setAnim('peek'); this.say(pick(['PEEKABOO! 👀', 'I SEE YOU!', 'Boo! 🙈', 'PEEKABOO!! Hehehe']));
-            sfx.chirp(); sfx.happy();
-            for (let i = 0; i < 4; i++) setTimeout(() => this._particle(this.x + 30 + rand(-12, 12), this.y - 10, pick(['👀', '🙈', '✨', '😄'])), i * 150);
-            setTimeout(() => this._setAnim('idle'), 2000);
+            this._setAnim('bob'); this.say(pick(['PEEKABOO! 👀', 'I SEE YOU!', 'Boo! 🙈', 'PEEKABOO!! Hehehe']));
+            sfx.chirp();
+            for (let i = 0; i < 3; i++) setTimeout(() => this._particle(this.x + 30 + rand(-12, 12), this.y - 10, pick(['👀', '🙈', '✨'])), i * 150);
+            setTimeout(() => this._setAnim('idle'), 1500);
           }
         }, 3000);
       });
@@ -447,15 +541,19 @@
     _waddleTo(tx, ty, cb) { this._setAnim('walk'); this._moveTo(tx, ty, C.speed.walk, () => { this._setAnim('idle'); if (cb) cb(); }); }
     _walkRandom(cb) { this._waddleTo(rand(40, window.innerWidth - 100), rand(30, 160), cb); }
     _walkOff(cb) {
-      const edge = Math.random() > 0.5 ? -80 : window.innerWidth + 80;
-      this.dir = edge < 0 ? -1 : 1; this._face(); this._setAnim('walk');
-      this._moveTo(edge, this.y, C.speed.walk, () => {
-        this.x = edge < 0 ? window.innerWidth + 60 : -60; this.y = rand(40, 140);
-        this.dir = this.x > window.innerWidth ? -1 : 1; this._face(); this._pos();
-        this._setAnim('walk');
-        this._moveTo(rand(100, window.innerWidth - 150), this.y, C.speed.walk, () => {
-          this._setAnim('idle'); this.say(pick(['I\'m back!', '*reappears*', 'Miss me?'])); sfx.chirp2(); if (cb) cb();
-        });
+      // walk to near the edge, pause, then walk back (no disappearing)
+      const goRight = Math.random() > 0.5;
+      const edgeX = goRight ? window.innerWidth - 30 : 10;
+      this.dir = goRight ? 1 : -1; this._face(); this._setAnim('walk');
+      this.say(pick(['*wanders off*', '*exploring*', 'Be right back!']));
+      this._moveTo(edgeX, this.y, C.speed.walk, () => {
+        this._setAnim('tilt'); this.say(pick(['Hmm, nothing here.', '*looks around*', '*peeks off edge*']));
+        setTimeout(() => {
+          this.dir *= -1; this._face(); this._setAnim('walk');
+          this._moveTo(rand(100, window.innerWidth - 150), rand(40, 140), C.speed.walk, () => {
+            this._setAnim('idle'); this.say(pick(['I\'m back!', '*reappears*', 'Miss me?'])); sfx.chirp2(); if (cb) cb();
+          });
+        }, 1500);
       });
     }
     _flyOff() {
@@ -463,7 +561,7 @@
       this._setAnim('fly'); sfx.flap();
       this._moveTo(this.dir > 0 ? window.innerWidth + 100 : -100, -80, C.speed.fly, () => {
         this.el.style.display = 'none';
-        setTimeout(() => {
+        this._flyBackT = setTimeout(() => {
           this._offScreen = false; this.el.style.display = '';
           this.x = Math.random() > 0.5 ? -80 : window.innerWidth + 80;
           this.y = rand(40, 120); this._pos();
@@ -484,31 +582,57 @@
       const tick = () => {
         if (this._dead || this._dragging || this._training || this._offScreen) { this._next(tick); return; }
         const idle = Date.now() - this.lastTouch;
+        // sleep entry
         if (idle > C.sleepAfter && !this._sleeping) {
           this._sleeping = true; this.setMood('sleepy'); this._setAnim('sleep');
+          this._exprSleep();
           this.say(pick(['*tucks head*', 'zzz...', '*one foot up*'])); this._addZzz();
           this._next(tick, rand(8000, 15000)); return;
         }
-        if (this._sleeping && idle < C.sleepAfter) { this._sleeping = false; this._rmZzz(); this.setMood('content'); this.say(pick(['*yawn*', '*stretches wings*'])); sfx.chirp(); }
-        if (idle > C.sleepAfter * 1.5 && Math.random() < 0.2) { this._sleeping = false; this._rmZzz(); this._screee(); this._next(tick, 5000); return; }
-        // cursor
+        // wake up if user interacted
+        if (this._sleeping && idle < C.sleepAfter) { this._sleeping = false; this._rmZzz(); this._exprWake(); this.setMood('content'); this.say(pick(['*yawn*', '*stretches wings*'])); sfx.chirp(); }
+        // still sleeping — stay asleep, occasionally self-wake
+        if (this._sleeping) {
+          if (Math.random() < 0.3) { this._sleeping = false; this._rmZzz(); this._exprWake(); this.setMood('content'); this.say(pick(['*yawn* I\'m up!', '*stretches*', '*blinks awake*'])); sfx.chirp(); }
+          else { this._next(tick, rand(6000, 12000)); return; }
+        }
+        // cursor — cooldown prevents rapid-fire reactions when bird is parked near cursor
         const r = this.el.getBoundingClientRect();
         const cd = Math.hypot(mx - (r.left + r.width / 2), my - (r.top + r.height / 2));
-        if (cd < C.cursorDist && !this._sleeping) { this._cursorReact(cd); this._next(tick, rand(1200, 2500)); return; }
-        // main roll
+        const cursorCooldown = Date.now() - (this._lastCursorReact || 0) > 8000;
+        if (cd < C.cursorDist && !this._sleeping && cursorCooldown) { this._lastCursorReact = Date.now(); this._cursorReact(cd); this._next(tick, rand(6000, 10000)); return; }
+        // main roll — every branch must return to prevent overlapping behaviors
+        // note: ambient wandering is handled by _wanderLoop independently
         const roll = Math.random();
         const cells = Lab.cells();
-        if (roll < 0.20) { this._walkRandom(() => this._next(tick)); return; }
-        else if (roll < 0.32 && cells.length) { this._goToCell(pick(cells), () => { this.say(pick(['*peeks at code*', '*reads along*', '*sits on code*', '*pecks at text*', '*studies intently*'])); this._next(tick, rand(3000, 7000)); }); return; }
-        else if (roll < 0.32 + C.mischief) { this._mischief(); }
-        else if (roll < 0.70) { this._sing(); this._next(tick, rand(6000, 12000)); return; }
-        else if (roll < 0.78) { this._idleAction(); }
-        else if (roll < 0.84) { this._walkOff(() => this._next(tick)); return; }
-        else if (Math.random() < C.giftChance) { this._bringGift(); }
-        else if (Math.random() < C.flockChance) { this.app.effects.flock(); this.say('*EXCITED CHIRPING!*'); sfx.chirp(); sfx.chirp2(); this.setMood('excited'); setTimeout(() => this.setMood('content'), 3000); }
-        else if (Math.random() < 0.015) { this._rareBehavior(); }
-        else if (Math.random() < 0.12) { this._exploreUI(); }
-        else { this._setAnim('idle'); this.say(pick(['*chirp*', '*fluffs up*', '*looks around*'])); }
+        // ~10% deliberate walk to random spot
+        if (roll < 0.10) { this._walkRandom(() => this._next(tick)); return; }
+        // ~5% go inspect a code cell
+        else if (roll < 0.15 && cells.length) { this._goToCell(pick(cells), () => { this.say(pick(['*peeks at code*', '*reads along*', '*sits on code*', '*pecks at text*', '*studies intently*'])); this._next(tick, rand(2000, 4000)); }); return; }
+        // ~12% mischief
+        else if (roll < 0.27) { this._mischief(); this._next(tick, rand(3000, 5000)); return; }
+        // ~10% sing
+        else if (roll < 0.37) { this._sing(); this._next(tick, rand(5000, 10000)); return; }
+        // ~10% idle actions (bob, preen, stretch, dance, jokes, etc.)
+        else if (roll < 0.47) { this._idleAction(); this._next(tick, rand(3000, 6000)); return; }
+        // ~4% walk off and return
+        else if (roll < 0.51) { this._walkOff(() => this._next(tick)); return; }
+        // ~9% bring gift
+        else if (roll < 0.62) { this._bringGift(); this._next(tick, rand(4000, 6000)); return; }
+        // ~4% heart wings
+        else if (roll < 0.66) { this._heartWings(); this._next(tick, rand(4000, 5000)); return; }
+        // ~2% beak grind
+        else if (roll < 0.67) { this._beakGrind(); this._next(tick, rand(4000, 7000)); return; }
+        // ~4% jealous walk
+        else if (roll < 0.71) { this._jealousWalk(); this._next(tick, rand(6000, 9000)); return; }
+        // ~7% explore UI
+        else if (roll < 0.78) { this._exploreUI(); this._next(tick, rand(4000, 6000)); return; }
+        // ~3% flock
+        else if (roll < 0.81) { this.app.effects.flock(); this.say('*EXCITED CHIRPING!*'); sfx.chirp(); sfx.chirp2(); this.setMood('excited'); setTimeout(() => this.setMood('content'), 3000); this._next(tick, rand(3000, 4000)); return; }
+        // ~5% place a tiny workspace item
+        else if (roll < 0.86) { this._placeItem(); this._next(tick, rand(3000, 5000)); return; }
+        // ~6% simple chirp / idle — keeps things light (sometimes silent)
+        else { this._setAnim('idle'); if (Math.random() < 0.5) this.say(pick(['*chirp*', '*fluffs up*', '*looks around*', '*chirp chirp*'])); sfx.chirp(); }
         this._next(tick);
       };
       this._next(tick, rand(1000, 3000));
@@ -522,40 +646,69 @@
         () => { this._setAnim('tilt'); this.say(pick(['*tilts head*', 'Whatcha doin?', 'Hmm? HMM?', 'Is that... for me?'])); setTimeout(() => this._setAnim('idle'), 1800); },
         () => { this._setAnim('wing-stretch'); this.say(pick(['*BIG stretch*', '*yawwwn*', 'Look at my wingspan!', '*flap flap!*'])); sfx.flap(); setTimeout(() => this._setAnim('idle'), 2000); },
         () => { this._setAnim('scratch'); this.say(pick(['*scratch scratch*', 'Ugh, itchy', '*aggressive scratching*'])); setTimeout(() => this._setAnim('idle'), 1500); },
-        // SINGING — happens frequently
+        // singing
         () => { this._sing(); },
         () => { this._sing(); },
         () => { sfx.chirp2(); this.say(pick(['*happy chirp chirp*', '*chatters excitedly*', 'CHIRP CHIRP CHIRP', '*beak grinding*'])); },
         () => { this._setAnim('bob'); this.say(pick(['*vibing SO hard*', '*dance dance*', 'I have the BEST moves', '*head bops*'])); sfx.chirp(); setTimeout(() => this._setAnim('idle'), 2000); },
+        // dance party (confetti only after work hours)
+        () => { this._setAnim('happy-dance'); this.say(pick(['DANCE PARTY! 💃', '*dances*', '*grooves*'])); sfx.party(); if (new Date().getHours() >= 18) this.app.effects.confetti(); setTimeout(() => this._setAnim('idle'), 2500); },
+        // peekaboo (simple bob instead of zoom)
+        () => { this._setAnim('bob'); this.say('PEEKABOO!! 👀'); sfx.chirp(); setTimeout(() => this._setAnim('idle'), 1500); },
+        // fly around
+        () => { this.say('*takes flight!*'); sfx.flap(); this._setAnim('fly'); this._moveTo(rand(50, window.innerWidth - 100), rand(30, 120), C.speed.fly, () => { this._squash(); this._setAnim('idle'); this.say('*nailed the landing*'); }); },
+        // nuzzle
+        () => { this._setAnim('nuzzle'); this._exprNuzzle(); this.say(pick(['*nuzzles the screen*', '*warm thoughts*', '🧡'])); sfx.chirp(); setTimeout(() => this._setAnim('idle'), 1500); },
+        // random joke
+        () => { this.say(pick(['Why do birds fly south? Too far to walk! 🥁', 'What\'s a neural net\'s fav snack? Backprop-corn! 🍿', 'I told model.fit() a joke. Zero sense of humor.', 'My favorite Taylor Swift song? Shake It Off! 🪶'])); sfx.chirp(); },
+        // existential moment
+        () => { this._setAnim('tilt'); this.say('*existential crisis*'); setTimeout(() => { this.say('...am I just pixels?'); setTimeout(() => { this.say('Nah I\'m too cute for that'); sfx.chirp(); this._setAnim('idle'); }, 2000); }, 2000); },
+        // mirror play
+        () => { this._mirrorPlay(); },
+        // random page effect (only after work hours — not distracting during work)
+        () => { if (new Date().getHours() >= 18 || new Date().getHours() < 6) { const fx = pick(['cherryBlossoms', 'leafFall', 'featherShower', 'bubbleShower']); this.app.effects[fx](); this.say(pick(['✨ pretty!', '*ooh!*', 'I made this for you!'])); } else { this.say(pick(['*looks out the window*', '*daydreams*', '*chirp*'])); } },
+        // encouragement
+        () => { this.say(pick(['You\'re going to do amazing things 🌟', 'Google doesn\'t know how lucky they\'ll be 🧡', 'The Keras team is better because of you ✨', 'You\'re literally building the future of AI 🚀'])); sfx.chirp(); this._exprNuzzle(); },
+        // biryani craving
+        () => { this.say(pick(['Is it just me or does someone need biryani? 🍗', '*daydreams about Telugu Vilas*', 'Fun fact: biryani makes code 47% better. Science.'])); sfx.chirp(); this._setAnim('tilt'); setTimeout(() => this._setAnim('idle'), 2000); },
+        // place workspace item
+        () => { this._placeItem(); },
+        // screech for attention
+        () => { this._screee(); },
       ];
       pick(acts)();
     }
     _sing() {
-      this._setAnim('bob');
+      this._setAnim('bob'); this._exprSing(); // happy eyes + beak open
       if (Math.random() < 0.7) {
-        // famous song!
         const s = sfx.song();
         this.say(`♪ ${s.name}~ ♪`);
-        // find the longest note time to know song duration
-        const dur = Math.max(...s.notes.map(n => n[1])) + 500;
-        // emit music notes throughout the song
-        const noteCount = Math.ceil(dur / 600);
+        const dur = (Math.max(...s.notes.map(n => n[1])) + 500) * 1.4; // match tempo scaling
+        const noteCount = Math.ceil(dur / 700);
         for (let i = 0; i < noteCount; i++) setTimeout(() => {
           if (!this._dead) this._particle(this.x + 30 + rand(-20, 20), this.y - 12, pick(['🎵', '🎶', '♪', '♫', '✨']));
         }, i * 600);
-        setTimeout(() => this._setAnim('idle'), dur + 300);
+        setTimeout(() => { this._setAnim('idle'); this._exprStopSing(); }, dur + 300);
       } else {
         sfx.whistle();
         this.say(pick(['♪ tweet tweet~ ♪', '♫ la la la~ ♫', '🎵 *whistles*', '♪ chirp chirp~ ♪']));
         for (let i = 0; i < 6; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['🎵', '🎶', '♪'])), i * 250);
-        setTimeout(() => this._setAnim('idle'), 2000);
+        setTimeout(() => { this._setAnim('idle'); this._exprStopSing(); }, 2000);
       }
     }
 
     // ─── Mischief ───
     _mischief() {
       pick([
+        // pushing things off (weighted — appears 3x)
         () => this._pushThingOff(),
+        () => this._pushThingOff(),
+        () => this._pushThingOff(),
+        // fetching things (weighted — appears 3x)
+        () => { this.say('I found something!'); this._setAnim('chase'); sfx.chirp(); setTimeout(() => { this._particle(this.x + 30, this.y + 10, pick(['🌰', '🪶', '📎', '🔑', '💎', '🌻', '🍓', '⭐'])); this._setAnim('idle'); this.say(pick(['*drops it at your feet*', 'For you!', 'Look what I found!'])); }, 1500); },
+        () => { this.say('I found something!'); this._setAnim('chase'); sfx.chirp(); setTimeout(() => { this._particle(this.x + 30, this.y + 10, pick(['🌰', '🪶', '📎', '🔑', '💎', '🌻', '🍓', '⭐'])); this._setAnim('idle'); this.say(pick(['*drops it at your feet*', 'For you!', 'Look what I found!'])); }, 1500); },
+        () => { this.say('I found something!'); this._setAnim('chase'); sfx.chirp(); setTimeout(() => { this._particle(this.x + 30, this.y + 10, pick(['🌰', '🪶', '📎', '🔑', '💎', '🌻', '🍓', '⭐'])); this._setAnim('idle'); this.say(pick(['*drops it at your feet*', 'For you!', 'Look what I found!'])); }, 1500); },
+        // regular mischief
         () => this._sitOnButton(),
         () => this._grabCursor(),
         () => this._typeGibberish(),
@@ -563,6 +716,16 @@
         () => { if (Math.random() < C.poopChance * 2) this._poop(); else this._pushThingOff(); },
         () => { this._setAnim('fly'); sfx.flap(); this.say('*zoom!*'); this._moveTo(rand(50, window.innerWidth - 100), rand(30, 150), C.speed.run, () => { this._setAnim('idle'); this.say('Wheee!'); }); },
         () => { this._setAnim('screee'); this.say(pick(['LOOK AT ME!', '*ATTENTION!*', 'HEY!'])); sfx.chirp(); sfx.chirp2(); setTimeout(() => this._setAnim('idle'), 1500); },
+        // shower
+        () => { this.say(pick(['*splish splash!*', 'BATH TIME!', '*shakes water everywhere*'])); for (let i = 0; i < 6; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y + rand(-5, 10), pick(['💧', '🫧', '💦'])), i * 130); this._setAnim('happy-dance'); setTimeout(() => { this._setAnim('idle'); this.say('*shakes feathers*'); }, 2500); },
+        // poop
+        () => { this._poop(); this.say(pick(['oops', '*whistles innocently*', 'What? Birds poop. It\'s natural.'])); },
+        // statue
+        () => { this.say('*pretends to be a statue*'); this._setAnim('idle'); this.el.style.filter = 'grayscale(1) brightness(1.2)'; setTimeout(() => { this.el.style.filter = ''; this.say(pick(['...did you buy it?', 'ART.', '*breaks character*'])); sfx.chirp(); }, 4000); },
+        // moonwalk
+        () => { this._setAnim('bob'); this.say('*MOONWALKS*'); this.dir *= -1; this._face(); this._moveTo(this.x - this.dir * 120, this.y, 0.8, () => { this._setAnim('idle'); this.say('Smooth, right?'); sfx.chirp2(); }); },
+        // tries to code
+        () => { this.say('*tries to type code*'); this._setAnim('peck'); sfx.chirp(); setTimeout(() => { this.say('print("I am a genius bird")'); sfx.crunch(); setTimeout(() => { this._setAnim('idle'); this.say('Hire me, Google.'); }, 1500); }, 1500); },
       ])();
     }
     _pushThingOff() {
@@ -591,7 +754,7 @@
     _typeGibberish() { this.say(pick(['asdfghjkl', 'squawwwk!!', 'birb birb birb', '01101001', '*keyboard smash*', 'qwertyyyy'])); this._setAnim('peck'); sfx.chirp(); setTimeout(() => this._setAnim('idle'), 1500); }
     _peckAtText() { const cells = Lab.cells(); if (cells.length) { this._goToCell(pick(cells), () => { this._setAnim('peck'); this.say(pick(['*peck peck*', '*nibbles code*', '*tastes semicolon*', '*eats a bracket*'])); sfx.crunch(); setTimeout(() => this._setAnim('idle'), 1500); }); } }
     _poop() { sfx.poop(); this.say('...'); const p = document.createElement('div'); p.className = 'mango-poop'; p.textContent = '💩'; p.style.left = (this.x + 28) + 'px'; p.style.top = (this.y + 60) + 'px'; document.body.appendChild(p); setTimeout(() => p.remove(), 5000); }
-    _screee() { this.setMood('annoyed'); this._setAnim('screee'); this.say(pick(['SCREEEEE!!', 'EXCUSE ME?!', 'HELLO?! I EXIST!', 'PAY ATTENTION TO ME!!', 'I AM BEING IGNORED AND I WILL NOT STAND FOR IT'])); sfx.screee(); for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['❗', '💢', '😤', '⚡', '🔥'])), i * 100); setTimeout(() => { this._setAnim('idle'); this.setMood('content'); this.say(pick(['...fine.', '*dramatic sigh*', 'Whatever.'])); }, 2500); }
+    _screee() { this.setMood('annoyed'); this._setAnim('screee'); this._exprScreech(); this.say(pick(['SCREEEEE!!', 'EXCUSE ME?!', 'HELLO?! I EXIST!', 'PAY ATTENTION TO ME!!', 'I AM BEING IGNORED AND I WILL NOT STAND FOR IT'])); sfx.screee(); for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['❗', '💢', '😤', '⚡', '🔥'])), i * 100); setTimeout(() => { this._setAnim('idle'); this.setMood('content'); this._eyesNormal(); this._beakClose(); this._unPuff(); this.say(pick(['...fine.', '*dramatic sigh*', 'Whatever.'])); }, 2500); }
     _bringGift() {
       const gift = pick(['🌰', '🌺', '❤️', '🍓', '⭐', '🌸', '🪶', '💎', '🌻']);
       this.say(`*found a ${gift}!*`); sfx.happy(); this.setMood('happy');
@@ -605,18 +768,28 @@
     _cursorReact(dist) {
       this.dir = mx > this.x + 30 ? 1 : -1; this._face(); this.lastTouch = Date.now();
       if (dist < 35) {
-        this.setMood('happy'); this._setAnim('nuzzle');
+        this.setMood('happy'); this._setAnim('nuzzle'); this._exprNuzzle();
         this.say(pick(['*aggressive nuzzling*', 'LOVE ME!', '*headbutts cursor*', '🧡🧡🧡', '*so clingy*', 'You\'re MINE', '*purrs... wait birds don\'t purr*'])); sfx.chirp();
       } else {
-        this.setMood('curious'); this._setAnim('tilt');
+        this.setMood('curious'); this._setAnim('tilt'); this._eyesWide();
         this.say(pick(['*tilts head*', 'Ooh? What\'s that?', '*STARES*', 'Come closer...', '*suspicious bird noises*', 'Is that... a treat?!'])); sfx.chirp3();
       }
-      setTimeout(() => { this._setAnim('idle'); if (this.mood !== 'annoyed') this.setMood('content'); }, 1500);
+      setTimeout(() => { this._setAnim('idle'); this._eyesNormal(); if (this.mood !== 'annoyed') this.setMood('content'); }, 1500);
     }
 
     // ─── Code reactions ───
     onCodeOk(cell) {
-      this.setMood('excited'); this._setAnim('happy-dance');
+      const h = new Date().getHours();
+      const workHours = h >= 9 && h < 18;
+      // during work hours: quieter reactions (40% chance to react)
+      if (workHours && Math.random() > 0.4) {
+        if (cell) this.app.cellGlow.success(cell);
+        // subtle reaction — just a quick nod
+        this._setAnim('bob'); sfx.chirp3();
+        setTimeout(() => this._setAnim('idle'), 800);
+        return;
+      }
+      this.setMood('excited'); this._setAnim('happy-dance'); this._exprHappy();
       this.say(pick([
         'YAY! It worked!!', '*HAPPY DANCE*', '✨ GENIUS CODE ✨', 'You did it!! I never doubted you!',
         '*celebratory chirps*', 'That was BEAUTIFUL', 'The code gods smile upon you!',
@@ -640,7 +813,7 @@
       setTimeout(() => { this._setAnim('idle'); this.setMood('content'); }, 2500);
     }
     onCodeErr(cell) {
-      this.setMood('concerned'); this._setAnim('sad');
+      this.setMood('concerned'); this._setAnim('sad'); this._exprStartled();
       this.say(pick([
         'Oh no... a bug!', '*concerned chirp*', 'THE CODE IS SICK!',
         'Don\'t worry, bugs happen to the best of us!', '*gasps* An error??',
@@ -675,13 +848,15 @@
     _trainActs() {
       if (!this._training || this._dead) return;
       pick([
-        () => this.say(pick(['*reads a tiny book*', '*studies with you*', '*takes notes*'])),
-        () => { this.say(pick(['Still going!', 'Stretch?', 'Water break?', 'Snack time?'])); sfx.chirp2(); },
-        () => { this._setAnim('preen'); this.say('*preens*'); setTimeout(() => this._setAnim('idle'), 2000); },
-        () => { this._sing(); },
-        () => { this._setAnim('tilt'); this.say(pick(['*stargazes*', '*watches clouds*', '*daydreams*'])); setTimeout(() => this._setAnim('idle'), 1500); },
+        () => this.say(pick(['*watches loss go down* 📉', '*reads training logs*', '*takes notes on accuracy*'])),
+        () => { this.say(pick(['Epoch by epoch... we got this!', 'Loss is dropping! I can feel it!', 'The weights are learning! 🧠'])); sfx.chirp2(); },
+        () => { this.say(pick(['Stretch break? 🤸', 'Water? You\'ll code better hydrated 💧', 'Snack time while we wait? 🍪'])); sfx.chirp(); },
+        () => { this._setAnim('preen'); this.say(pick(['*preens while waiting*', '*grooming break*'])); setTimeout(() => this._setAnim('idle'), 2000); },
+        () => { this._setAnim('tilt'); this.say(pick(['How many epochs left?', '*stares at progress bar*', 'Is that a good loss? I think that\'s good!'])); setTimeout(() => this._setAnim('idle'), 1500); },
+        () => this.say(pick(['Your model is working SO hard rn', '*cheering the gradients on*', 'Go neurons go!! 🧠✨'])),
+        () => { this._setAnim('bob'); this.say('*hums while waiting* 🎵'); sfx.chirp3(); setTimeout(() => this._setAnim('idle'), 1500); },
       ])();
-      this._trainTmr = setTimeout(() => this._trainActs(), rand(8000, 18000));
+      this._trainTmr = setTimeout(() => this._trainActs(), rand(10000, 20000));
     }
     onTrainEnd(ok) {
       this._training = false; clearTimeout(this._trainTmr);
@@ -714,7 +889,8 @@
           this.lastTouch = Date.now();
           this.say(pick(['Whee!', '*chirp*', 'I like it here!', 'Ooh new spot!', '*settles in*'])); sfx.chirp();
           this._setAnim('idle');
-          // restart behavior loop after a pause (the old loop dies when drag cancels RAF mid-movement)
+          // kill old loop and restart after a pause
+          clearTimeout(this._tmr);
           setTimeout(() => this._startLoop(), rand(2000, 4000));
         }
         setTimeout(() => { this._dragged = false; }, 50);
@@ -724,11 +900,12 @@
     _onPet(e) {
       e.stopPropagation(); this.petCount++; this.lastTouch = Date.now();
       this._sleeping = false; this._rmZzz(); this.setMood('happy'); sfx.chirp();
+      this._exprNuzzle(); // closes eyes, leans in
       for (let i = 0; i < 4; i++) setTimeout(() => this._particle(e.clientX + rand(-12, 12), e.clientY - 10, pick(['❤️', '💕', '✨', '🧡', '💖'])), i * 80);
       this._setAnim('nuzzle');
       if ([10, 25, 50, 100].includes(this.petCount)) this.say(`${this.petCount} pets!! I love you!!`);
       else this.say(pick(['*happy chirp*', '*closes eyes*', '*nuzzles*', '*leans into it*', '🧡', '*head scratches!*']));
-      setTimeout(() => { this._setAnim('idle'); this.setMood('content'); }, 1500);
+      setTimeout(() => { this._setAnim('idle'); this.setMood('content'); this._eyesNormal(); }, 1500);
     }
     _onFeed(e) {
       e.stopPropagation(); this.lastTouch = Date.now(); this.setMood('excited');
@@ -736,21 +913,30 @@
       const t = document.createElement('div'); t.className = 'mango-treat'; t.textContent = seed;
       t.style.left = e.clientX + 'px'; t.style.top = e.clientY + 'px';
       document.body.appendChild(t); setTimeout(() => t.remove(), 600);
-      sfx.crunch(); this._setAnim('peck');
+      sfx.crunch(); this._setAnim('peck'); this._beakOpen(); this._eyesHappy();
       this.say(pick([`Yum! ${seed}`, '*CRUNCH*', '*happy munch*', 'MORE!', '*excited eating*']));
-      setTimeout(() => { this._setAnim('idle'); this.setMood('content'); }, 1200);
+      setTimeout(() => { this._setAnim('idle'); this.setMood('content'); this._beakClose(); this._eyesNormal(); }, 1200);
     }
 
     // ─── Rare behaviors (1-2% chance, discovered over weeks) ───
     _rareBehavior() {
       const rare = [
         () => { this._setAnim('happy-dance'); this.say('*does a HANDSTAND*'); sfx.boing(); for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-10, 10), this.y - 10, '⭐'), i * 150); setTimeout(() => { this._setAnim('idle'); this.say('Ta-daaa!!'); }, 2000); },
-        () => { this.say('*falls off edge*'); this._setAnim('fly'); sfx.screee(); this._moveTo(this.x, window.innerHeight + 50, C.speed.fly, () => { setTimeout(() => { this.y = -50; this._pos(); this._setAnim('fly'); sfx.flap(); this._moveTo(rand(100, window.innerWidth - 100), rand(40, 120), C.speed.walk, () => { this._setAnim('idle'); this.say(pick(['...that never happened', '*brushes self off*', 'I MEANT to do that'])); }); }, 1500); }); },
         () => { this.say('*pretends to be a statue*'); this._setAnim('idle'); this.el.style.filter = 'grayscale(1) brightness(1.2)'; setTimeout(() => { this.el.style.filter = ''; this.say(pick(['...did you buy it?', 'ART.', '*breaks character*'])); sfx.chirp(); }, 4000); },
         () => { this._setAnim('bob'); this.say('*MOONWALKS*'); const startX = this.x; this.dir *= -1; this._face(); this._moveTo(this.x - this.dir * 120, this.y, 0.8, () => { this._setAnim('idle'); this.say('Smooth, right?'); sfx.chirp2(); }); },
-        () => { this.say('*tries to type code*'); this._setAnim('peck'); sfx.chirp(); setTimeout(() => { this.say('print("I am a genius bird")'); sfx.crunch(); setTimeout(() => { this._setAnim('idle'); this.say('Hire me.'); }, 1500); }, 1500); },
+        () => { this.say('*tries to type code*'); this._setAnim('peck'); sfx.chirp(); setTimeout(() => { this.say('print("I am a genius bird")'); sfx.crunch(); setTimeout(() => { this._setAnim('idle'); this.say('Hire me, Google.'); }, 1500); }, 1500); },
         () => { this._setAnim('tilt'); this.say('*existential crisis*'); setTimeout(() => { this.say('...am I just pixels?'); setTimeout(() => { this.say('Nah I\'m too cute for that'); sfx.chirp(); this._setAnim('idle'); }, 2000); }, 2000); },
         () => { this._mirrorPlay(); },
+        // screech for attention
+        () => { this._screee(); },
+        // random encouragement
+        () => { this.say(pick(['You\'re going to do amazing things 🌟', 'Google doesn\'t know how lucky they\'ll be 🧡', 'The Keras team is better because of you ✨', 'You\'re literally building the future of AI 🚀'])); sfx.chirp(); this._exprNuzzle(); },
+        // poop (rare mischief)
+        () => { this._poop(); this.say(pick(['oops', '*whistles innocently*', 'What? Birds poop. It\'s natural.'])); },
+        // tiny biryani craving
+        () => { this.say(pick(['Is it just me or does someone need biryani? 🍗', '*daydreams about Telugu Vilas*', 'Fun fact: biryani makes code 47% better. Science.'])); sfx.chirp(); this._setAnim('tilt'); setTimeout(() => this._setAnim('idle'), 2000); },
+        // place workspace item naturally
+        () => { this._placeItem(); },
       ];
       pick(rare)();
     }
@@ -779,8 +965,8 @@
 
     // ─── Tab visibility reaction ───
     onTabReturn() {
-      if (this._sleeping) { this._sleeping = false; this._rmZzz(); }
-      this.setMood('excited'); this._setAnim('happy-dance'); sfx.happy(); sfx.chirp();
+      if (this._sleeping) { this._sleeping = false; this._rmZzz(); this._exprWake(); }
+      this.setMood('excited'); this._setAnim('happy-dance'); this._exprStartled(); sfx.happy(); sfx.chirp();
       this.say(pick(['WHERE WERE YOU?!', 'FINALLY!!', 'I MISSED YOU!!', 'DON\'T EVER LEAVE AGAIN', '*dramatic reunion*', 'I thought you left forever!!']));
       for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['❤️', '💕', '😭', '🧡', '✨'])), i * 120);
       setTimeout(() => { this._setAnim('idle'); this.setMood('content'); }, 3000);
@@ -793,16 +979,38 @@
     // ─── Time ───
     timeCheck() {
       const h = new Date().getHours();
-      if (h >= 23 || h < 5) this.say(pick(['*yawns*', 'It\'s late...', 'Sleep soon?', '🌙']));
-      else if (h >= 6 && h < 9) { this.say(pick(['Good morning! ☀️', 'Ready to code?', '*morning chirp!*'])); sfx.chirp(); }
-      else if (h >= 12 && h < 13) this.say(pick(['Lunch time?', 'Feed me too!', '🍽️']));
+      const day = new Date().getDay();
+      const dayGreetings = [
+        ['It\'s SUNDAY! Wait... you\'re working?! 😱', 'Sunday vibes~ 🌻', 'Lazy Sunday! ...or not.'],
+        ['Monday 😩 Stay strong!', 'Ugh, Monday. Coffee first. ☕', 'New week new bugs! ...I mean features!'],
+        ['Tuesday! Getting into the groove 💪', 'Taco Tuesday! ...wait, biryani Tuesday? 🍗'],
+        ['Wednesday — halfway there! 🎉', 'Hump day! The weekend is coming!', 'Mid-week energy! You got this ✨'],
+        ['Thursday! Almost Friday!', 'One more day... you can do it! 💪', 'Thursday = Friday Eve!'],
+        ['FRIDAY!! 🎉🎉', 'TGIF!! Biryani tonight?? 🍗', 'FRIDAY! Weekend mode loading... 🔄'],
+        ['Saturday coding? Dedication! ✨', 'It\'s Saturday! Rest is productive too 🌿', 'Weekend warrior! 💪'],
+      ];
+      if (h >= 23 || h < 5) {
+        // late night care mode
+        this.say(pick(['It\'s really late... please rest soon 🌙', 'Mayank would want you to sleep 💕', 'Your models will still be here tomorrow 🌙', 'Even Keras needs a break sometimes 💤', '*tucks you in with tiny wings* Sleep! 🌙']));
+      } else if (h >= 6 && h < 9) {
+        this.say(pick(dayGreetings[day])); sfx.chirp();
+      } else if (h >= 12 && h < 13) {
+        this.say(pick(['Lunch time? Biryani? 🍗', 'Feed me! Feed yourself! 🍽️', 'Telugu Vilas is calling... 🍗']));
+      } else if (h >= 9 && h < 12) {
+        if (Math.random() < 0.5) this.say(pick(dayGreetings[day]));
+      }
     }
     nightCheck() {
       const h = new Date().getHours();
-      if ((h >= 23 || h < 5) && !this._sleeping && Math.random() < 0.3) {
-        this._sleeping = true; this.setMood('sleepy'); this._setAnim('sleep'); this._addZzz();
-        this.say(pick(['*sleepy chirp*', 'zzz...']));
-        setTimeout(() => { if (this._sleeping) this.say(pick(['*opens one eye*', 'still coding...?', '🌙'])); }, 30000);
+      if ((h >= 23 || h < 5) && !this._sleeping) {
+        // late night care mode — very gentle, less mischief
+        if (Math.random() < 0.3) {
+          this.say(pick(['It\'s so late... 🌙', 'Please sleep soon 💕', '*worried chirp*', 'Your health matters more than code 🧡', 'Go to bed! Doctor bird\'s orders! 🐦']));
+          this._exprNuzzle();
+        } else if (Math.random() < 0.15) {
+          this._sleeping = true; this.setMood('sleepy'); this._setAnim('sleep'); this._addZzz();
+          this.say(pick(['*falls asleep hoping you\'ll follow*', 'zzz... *leading by example*']));
+        }
       }
     }
     // ─── Messages from Mayank (delivered via banner, like a messenger bird) ───
@@ -810,7 +1018,10 @@
       this.setMood('happy'); this._setAnim('nuzzle'); sfx.noteOpen();
       // show as bird-held banner (the bird is delivering a message)
       const banner = document.createElement('div'); banner.className = 'mango-love-banner';
-      banner.innerHTML = `<div class="mlb-card"><div class="mlb-ribbon">${intensity === 'night' ? '💋' : '💕'}</div><div class="mlb-msg">${msg}</div></div>`;
+      const card = document.createElement('div'); card.className = 'mlb-card';
+      const ribbon = document.createElement('div'); ribbon.className = 'mlb-ribbon'; ribbon.textContent = intensity === 'night' ? '💋' : '💕';
+      const msgEl = document.createElement('div'); msgEl.className = 'mlb-msg'; msgEl.textContent = msg;
+      card.appendChild(ribbon); card.appendChild(msgEl); banner.appendChild(card);
       banner.addEventListener('click', () => { banner.classList.add('mlb-hide'); setTimeout(() => banner.remove(), 500); });
       this.el.appendChild(banner);
       setTimeout(() => banner.classList.add('mlb-show'), 10);
@@ -875,24 +1086,39 @@
       acc.textContent = pick(['🧣', '🌸', '😎', '🍂', '🎀', '👑', '🎩', '🌻', '⭐', '🦋', '🧢', '💎', '🌈', '🎵', '🪶']);
       this.el.appendChild(acc);
     }
-    // ─── Library reactions ───
+    // ─── Library & Keras reactions ───
     reactToCode(text) {
       if (!text) return;
       const t = text.toLowerCase();
-      if (t.includes('keras') || t.includes('from keras') || t.includes('import keras')) {
-        setTimeout(() => this.say(pick(['Keras! Your team\'s amazing work! 🧡', 'I LOVE Keras! Best framework! 🧡', 'Keras!! *proud chirps* 🧡🐦'])), 500);
+      // ─── Keras-specific (she works on the Keras team!) ───
+      if (t.includes('model.fit') || t.includes('.fit(')) {
+        setTimeout(() => { this.say(pick(['Training time! Let\'s GO! 🚀', 'Ooh model.fit()! *grabs popcorn*', 'I\'ll watch the epochs with you! 📉', '*sits next to training cell attentively*'])); sfx.chirp(); this._setAnim('bob'); setTimeout(() => this._setAnim('idle'), 2000); }, 500);
+      } else if (t.includes('model.compile')) {
+        setTimeout(() => this.say(pick(['Compiling! We\'re building something! 🔧', 'model.compile()... the setup phase! ✨', '*watches intently* What optimizer?'])), 500);
+      } else if (t.includes('model.predict') || t.includes('.predict(')) {
+        setTimeout(() => { this.say(pick(['THE MOMENT OF TRUTH! 🥁', 'Predictions incoming! *holds breath*', 'model.predict()!! What will it say?!'])); this._exprStartled(); }, 500);
+      } else if (t.includes('model.evaluate') || t.includes('.evaluate(')) {
+        setTimeout(() => this.say(pick(['Report card time! 📊', 'How did we do?! *nervous chirp*', '*crosses tiny wings*'])), 500);
+      } else if (t.includes('model.save') || t.includes('.save(') || t.includes('save_model')) {
+        setTimeout(() => this.say(pick(['Saving! Good human! 💾', 'Always save your models! Smart! ✨', '*approving chirp* Checkpoint!'])), 500);
+      } else if (t.includes('keras') || t.includes('from keras') || t.includes('import keras')) {
+        setTimeout(() => { this.say(pick(['Keras! That\'s MY human\'s framework! 🧡', 'I LOVE Keras! The BEST framework! 🧡', '*puffs up proudly* KERAS!! 🐦🧡', 'Keras team represent!! ✨🧡'])); this._puffUp(); setTimeout(() => this._unPuff(), 2000); }, 500);
       } else if (t.includes('tensorflow') || t.includes('import tf')) {
-        setTimeout(() => this.say(pick(['TensorFlow! Big brain time 🧠', 'Neural networks! Fancy! ✨'])), 500);
+        setTimeout(() => this.say(pick(['TensorFlow! Big brain time 🧠', 'Neural networks! Fancy! ✨', 'tf! The powerhouse! 💪'])), 500);
       } else if (t.includes('pandas') || t.includes('import pd')) {
         setTimeout(() => this.say(pick(['Pandas! Data time! 🐼', 'DataFrames incoming! 📊'])), 500);
       } else if (t.includes('matplotlib') || t.includes('import plt')) {
-        setTimeout(() => this.say(pick(['Are we making art?! 🎨', 'Ooh pretty charts! 📈'])), 500);
+        setTimeout(() => this.say(pick(['Are we making art?! 🎨', 'Ooh pretty charts! 📈', 'Plot twist! Literally! 📉'])), 500);
       } else if (t.includes('numpy') || t.includes('import np')) {
-        setTimeout(() => this.say(pick(['Numbers! Math! I can count to... 3. 🔢', 'NumPy! *impressed chirp*'])), 500);
+        setTimeout(() => this.say(pick(['Numbers! Math! I can count to... 3. 🔢', 'NumPy! *impressed chirp*', 'Arrays! My favorite shape is... seed-shaped. 🌻'])), 500);
       } else if (t.includes('sklearn') || t.includes('scikit')) {
-        setTimeout(() => this.say(pick(['Machine learning! 🤖', 'Scikit-learn! Fancy! ✨'])), 500);
+        setTimeout(() => this.say(pick(['Machine learning! 🤖', 'Scikit-learn! Classic! ✨'])), 500);
       } else if (t.includes('torch')) {
-        setTimeout(() => this.say(pick(['PyTorch! Heavy stuff! 🔥', 'Tensors everywhere! 🧠'])), 500);
+        setTimeout(() => this.say(pick(['PyTorch! *nervous glance at Keras*', 'Tensors everywhere! 🧠', 'The other framework... *suspicious chirp*'])), 500);
+      } else if (t.includes('loss') && (t.includes('=') || t.includes('('))) {
+        setTimeout(() => this.say(pick(['Loss function! May it go down fast! 📉', '*watches loss nervously*'])), 500);
+      } else if (t.includes('accuracy') || t.includes('acc')) {
+        if (Math.random() < 0.4) setTimeout(() => this.say(pick(['Accuracy! Higher is better! GO GO GO! 📈', '99.9% accuracy or bust!'])), 500);
       }
       // Secret songs
       if (t.includes('print("sing') || t.includes("print('sing") || t.includes('# sing') || t.includes('# play music')) {
@@ -903,9 +1129,173 @@
       }
     }
 
+    // ─── Beak Grinding (deep contentment) ───
+    _beakGrind() {
+      this._setAnim('idle'); this._exprSleep(); this._puffUp();
+      this.say(pick(['*soft beak grinding*', '*content*', '*so peaceful*']));
+      // one-eye-open if cursor moves nearby during grind
+      this._grinding = true;
+      const checkCursor = setInterval(() => {
+        if (!this._grinding) { clearInterval(checkCursor); return; }
+        const r = this.el.getBoundingClientRect();
+        const d = Math.hypot(mx - (r.left + r.width / 2), my - (r.top + r.height / 2));
+        if (d < 100) { this._eyesOneOpen(); this.say('*opens one eye*'); setTimeout(() => { if (this._grinding) this._eyesClosed(); }, 1500); }
+      }, 2000);
+      setTimeout(() => { this._grinding = false; clearInterval(checkCursor); this._exprWake(); this._unPuff(); this._setAnim('idle'); }, rand(6000, 10000));
+    }
+
+    // ─── Heart Wings (turns around, wings form heart) ───
+    _heartWings() {
+      this._setAnim('idle');
+      this.el.classList.add('heart-wings');
+      this.say(pick(['💛', '*heart wings!*', '🧡']));
+      for (let i = 0; i < 4; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['💛', '🧡', '💕', '✨'])), i * 200);
+      setTimeout(() => { this.el.classList.remove('heart-wings'); this._setAnim('idle'); }, 4000);
+    }
+
+    // ─── Contact Nap (falls asleep on cursor) ───
+    _contactNap() {
+      if (this._sleeping || this._offScreen) return;
+      this._waddleTo(clamp(mx - 30, 10, window.innerWidth - 80), clamp(my - 30, 10, window.innerHeight - 80), () => {
+        this._sleeping = true; this._setAnim('sleep'); this._exprSleep(); this._addZzz();
+        this.say(pick(['*falls asleep on you*', '*zzz... warm...*', '*trusts you completely*']));
+        // wake up when mouse moves — track listener for cleanup
+        if (this._napWakeCheck) document.removeEventListener('mousemove', this._napWakeCheck);
+        this._napWakeCheck = (e) => {
+          if (Math.hypot(e.movementX, e.movementY) > 5) {
+            document.removeEventListener('mousemove', this._napWakeCheck); this._napWakeCheck = null;
+            this._exprStartled();
+            this.say(pick(['*blinks*', '*startled chirp*', 'hmm...?']));
+            setTimeout(() => { this._sleeping = false; this._rmZzz(); this._eyesNormal(); this._unPuff(); this._setAnim('idle'); this.say(pick(['*yawn*', 'Was... was I sleeping on you?', '*embarrassed chirp*'])); }, 800);
+          }
+        };
+        setTimeout(() => document.addEventListener('mousemove', this._napWakeCheck), 500);
+      });
+    }
+
+    // ─── Jealous Keyboard Walk (walks across code cells) ───
+    _jealousWalk() {
+      const cells = Lab.cells();
+      if (!cells.length) return;
+      const cell = cells[Math.floor(cells.length / 2)]; // pick a middle cell
+      const r = Lab.rect(cell); if (!r) return;
+      // skip if cell is not visible in viewport
+      if (r.top < -50 || r.top > window.innerHeight || r.left < -50 || r.left > window.innerWidth) return;
+      this.say(pick(['*walks across your code*', 'HELLO I AM HERE', 'This is MY keyboard now', '*struts across code*']));
+      sfx.chirp(); this.setMood('annoyed');
+      this._setAnim('walk');
+      // walk from left to right across the cell, clamped to viewport
+      const startX = clamp(r.left - 30, 0, window.innerWidth - 80);
+      const endX = clamp(r.left + r.width + 30, 0, window.innerWidth - 80);
+      const ty = clamp(r.top + r.height / 2 - 30, 10, window.innerHeight - 80);
+      this.x = startX; this.y = ty; this._pos();
+      this._moveTo(endX, ty, 0.8, () => {
+        this._setAnim('idle'); this.say(pick(['*sits down defiantly*', 'Acknowledge me.', '*waits*']));
+        // wait for click to move off
+        const clickOff = () => {
+          this.el.removeEventListener('click', clickOff);
+          this.say(pick(['FINE.', '*hops off smugly*', '*satisfied strut*'])); sfx.chirp2();
+          this.setMood('content'); this._walkRandom();
+        };
+        this.el.addEventListener('click', clickOff);
+        // auto-move after 8s if not clicked
+        setTimeout(() => { this.el.removeEventListener('click', clickOff); this.setMood('content'); this._walkRandom(); }, 8000);
+      });
+    }
+
+    // ─── Tiny workspace items ───
+    _placeItem() {
+      if (this._dead || this._offScreen) return;
+      const h = new Date().getHours();
+      const dayItems = ['☕', '📝', '🪴', '🍪', '📎', '🔖', '✏️', '🧮'];
+      const eveItems = ['🕯️', '🌸', '☕', '🍵', '🧸', '💌', '🌙', '🍫'];
+      const item = pick(h >= 18 ? eveItems : dayItems);
+      const el = document.createElement('div');
+      el.style.cssText = `position:fixed;font-size:14px;pointer-events:none;z-index:99997;opacity:0;transition:opacity 0.5s;left:${this.x + rand(-20, 50)}px;top:${this.y + rand(40, 60)}px;`;
+      el.textContent = item;
+      document.body.appendChild(el);
+      setTimeout(() => { el.style.opacity = '0.7'; }, 10);
+      this.say(pick(['*places a tiny ' + item + '*', '*leaves this here*', '*decorating!*']));
+      // fade out after 30-60s
+      setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 600); }, rand(30000, 60000));
+    }
+
+    // ─── Session milestones ───
+    _checkMilestone(cellCount) {
+      const h = new Date().getHours();
+      const afterWork = h >= 18 || h < 6;
+      if (cellCount === 5) { this.say(pick(['5 cells! Warming up! ✨', 'Getting started! 💪'])); sfx.chirp(); this._setAnim('bob'); setTimeout(() => this._setAnim('idle'), 1500); }
+      else if (cellCount === 10) { this.say('10 cells! 🎵 Song for the coder!'); setTimeout(() => this._sing(), 800); }
+      else if (cellCount === 25) { this.say('25 CELLS!! 🎉🎉 PARTY!'); sfx.party(); this.app.effects.confetti(); this._setAnim('happy-dance'); setTimeout(() => this._setAnim('idle'), 3000); }
+      else if (cellCount === 50) {
+        this.say('💯 50 CELLS!! ABSOLUTE LEGEND!! 💯'); sfx.party(); sfx.happy();
+        this.app.effects.confetti(); this._setAnim('happy-dance');
+        for (let i = 0; i < 10; i++) setTimeout(() => this._particle(this.x + 30 + rand(-25, 25), this.y - 15, pick(['🎉', '✨', '⭐', '💯', '🏆', '🌟'])), i * 100);
+        if (afterWork) setTimeout(() => this.say('Mayank says: 50 cells?! You\'re incredible. Take a break, genius 💕'), 4000);
+        setTimeout(() => this._setAnim('idle'), 4000);
+      }
+    }
+
+    // ─── Ambient wander — bird is always moving when idle ───
+    _wanderLoop() {
+      const go = () => {
+        if (this._dead) return;
+        // only wander if truly idle (not walking, sleeping, dragging, offscreen, or mid-action)
+        const isIdle = this.el.classList.contains('idle') && !this._sleeping && !this._dragging && !this._offScreen;
+        if (isIdle) {
+          // short stroll to a nearby position
+          const nx = clamp(this.x + rand(-120, 120), 20, window.innerWidth - 80);
+          const ny = clamp(this.y + rand(-30, 30), 20, 180);
+          this._setAnim('walk');
+          this._moveTo(nx, ny, C.speed.walk, () => { this._setAnim('idle'); });
+        }
+        this._wanderT = setTimeout(go, rand(3000, 6000));
+      };
+      this._wanderT = setTimeout(go, rand(2000, 4000));
+    }
+
+    // ─── Cursor stillness tracking (for contact nap) ───
+    _trackCursorStill() {
+      let lastX = mx, lastY = my, stillTime = 0;
+      this._cursorStillI = setInterval(() => {
+        if (this._dead || this._sleeping || this._offScreen || this._grinding) return;
+        if (Math.abs(mx - lastX) < 3 && Math.abs(my - lastY) < 3) {
+          stillTime += 3000;
+          if (stillTime >= 60000 && Math.random() < 0.15) { this._contactNap(); stillTime = 0; }
+        } else { stillTime = 0; }
+        lastX = mx; lastY = my;
+      }, 3000);
+    }
+
+    // ─── Expressiveness (eyes, beak, body) ───
+    _eyeAttr(e) { return e.tagName === 'ellipse' ? 'ry' : 'r'; }
+    _eyesNormal() { this.eyes.forEach(e => e.setAttribute(this._eyeAttr(e), e.dataset.o || '4.5')); this.shines.forEach(s => s.style.opacity = '1'); }
+    _eyesClosed() { this.eyes.forEach(e => e.setAttribute(this._eyeAttr(e), '0.8')); this.shines.forEach(s => s.style.opacity = '0'); }
+    _eyesHappy() { this.eyes.forEach(e => e.setAttribute(this._eyeAttr(e), '3')); this.shines.forEach(s => s.style.opacity = '1'); }
+    _eyesWide() { this.eyes.forEach(e => e.setAttribute(this._eyeAttr(e), '5.5')); this.shines.forEach(s => s.style.opacity = '1'); }
+    _eyesOneOpen() {
+      const eyes = [...this.eyes];
+      if (eyes[0]) eyes[0].setAttribute(this._eyeAttr(eyes[0]), '0.8');
+      if (eyes[1]) eyes[1].setAttribute(this._eyeAttr(eyes[1]), eyes[1].dataset.o || '4.5');
+    }
+    _beakOpen() { this.el.classList.add('beak-open'); }
+    _beakClose() { this.el.classList.remove('beak-open'); }
+    _puffUp() { this.el.classList.add('puffed'); }
+    _unPuff() { this.el.classList.remove('puffed'); }
+    // combo expressions — all resets go through _exprReset to prevent overlapping timers
+    _exprReset(ms) { clearTimeout(this._exprT); this._exprT = setTimeout(() => { this._eyesNormal(); this._beakClose(); this._unPuff(); }, ms); }
+    _exprSleep() { clearTimeout(this._exprT); this._eyesClosed(); this._puffUp(); }
+    _exprWake() { this._eyesWide(); this._unPuff(); this._exprReset(800); }
+    _exprHappy() { this._eyesHappy(); this._puffUp(); this._exprReset(2000); }
+    _exprSing() { clearTimeout(this._exprT); this._eyesHappy(); this._beakOpen(); }
+    _exprStopSing() { this._eyesNormal(); this._beakClose(); }
+    _exprStartled() { this._eyesWide(); this._beakOpen(); this._exprReset(600); }
+    _exprNuzzle() { this._eyesClosed(); this._exprReset(1500); }
+    _exprScreech() { this._eyesWide(); this._beakOpen(); this._puffUp(); this._exprReset(2000); }
+
     // ─── Display ───
     setMood(m) { this.mood = m; this.el.className = this.el.className.replace(/mood-\w+/g, '') + ` mood-${m}`; }
-    _setAnim(a) { this.el.className = this.el.className.replace(/\b(idle|walk|fly|sleep|bob|preen|tilt|peck|nuzzle|chase|screee|happy-dance|sad|wing-stretch|scratch|peek)\b/g, '').trim() + ` ${a}`; if (this.dir === -1) this.el.classList.add('facing-left'); }
+    _setAnim(a) { this.el.className = this.el.className.replace(/\b(idle|walk|fly|sleep|bob|preen|tilt|peck|nuzzle|chase|chase-tail|screee|happy-dance|sad|wing-stretch|scratch|peek)\b/g, '').trim() + ` ${a}`; if (this.dir === -1) this.el.classList.add('facing-left'); }
     _face() { this.el?.classList.toggle('facing-left', this.dir === -1); }
     _pos() { this.el.style.left = this.x + 'px'; this.el.style.top = this.y + 'px'; }
     say(text) { this.bubble.textContent = text; this.bubble.classList.add('show'); clearTimeout(this._sayT); this._sayT = setTimeout(() => this.bubble.classList.remove('show'), C.speechMs); }
@@ -922,7 +1312,16 @@
       }; this._blkT = setTimeout(go, rand(800, 2500));
     }
     _moodDecay() { this._mdI = setInterval(() => { if (this.mood === 'happy' || this.mood === 'excited') this.setMood('content'); }, 12000); }
-    destroy() { this._dead = true; clearTimeout(this._tmr); clearTimeout(this._sayT); clearTimeout(this._blkT); clearInterval(this._mdI); clearTimeout(this._trainTmr); cancelAnimationFrame(this._raf); this.el.remove(); }
+    destroy() {
+      this._dead = true;
+      clearTimeout(this._tmr); clearTimeout(this._sayT); clearTimeout(this._blkT); clearTimeout(this._exprT);
+      clearInterval(this._mdI); clearInterval(this._cursorStillI);
+      clearTimeout(this._trainTmr); clearTimeout(this._flyBackT); clearTimeout(this._wanderT);
+      cancelAnimationFrame(this._raf);
+      if (this._napWakeCheck) { document.removeEventListener('mousemove', this._napWakeCheck); this._napWakeCheck = null; }
+      if (this._resizeHandler) { window.removeEventListener('resize', this._resizeHandler); }
+      this.el.remove();
+    }
   }
 
   // ═══ PAGE EFFECTS ═══
@@ -1020,18 +1419,15 @@
       btn.addEventListener('click', () => {
         this.effects.random();
         if (this.mango) {
-          // Chitti also does a random trick
-          const tricks = [
+          pick([
             () => { this.mango._sing(); },
-            () => { this.mango._screee(); },
-            () => { this.mango._pushThingOff(); },
-            () => { this.mango._setAnim('happy-dance'); this.mango.say('WOOHOO! PARTY!'); sfx.party(); setTimeout(() => this.mango._setAnim('idle'), 2500); },
+            () => { this.mango._setAnim('happy-dance'); this.mango.say('WOOHOO!'); sfx.party(); setTimeout(() => this.mango._setAnim('idle'), 2500); },
             () => { this.mango._bringGift(); },
-            () => { this.mango._grabCursor(); },
-            () => { this.mango._setAnim('fly'); sfx.flap(); this.mango.say('*ZOOM!*'); this.mango._moveTo(rand(50, window.innerWidth - 100), rand(30, 150), C.speed.run, () => { this.mango._setAnim('happy-dance'); sfx.happy(); setTimeout(() => this.mango._setAnim('idle'), 1500); }); },
-            () => { this.mango._poop(); this.mango.say('*oops*'); },
-          ];
-          pick(tricks)();
+            () => { this.mango._heartWings(); },
+            () => { this.mango._setAnim('happy-dance'); this.mango.say('WOOHOO!'); setTimeout(() => this.mango._setAnim('idle'), 2000); },
+            () => { this.mango._setAnim('fly'); sfx.flap(); this.mango.say('*ZOOM!*'); this.mango._moveTo(rand(50, window.innerWidth - 100), rand(30, 150), C.speed.run, () => { this.mango._setAnim('idle'); this.mango.say('Wheee!'); }); },
+            () => { this.mango._pushThingOff(); },
+          ])();
         }
       });
       document.body.appendChild(btn);
@@ -1044,6 +1440,34 @@
       });
       // Goodnight kiss from Mayank (checks at night)
       this._mayankLoop();
+      // Copy-paste reactions
+      let lastCopyReact = 0;
+      document.addEventListener('copy', () => {
+        if (!this.mango || Date.now() - lastCopyReact < 15000) return; // 15s cooldown
+        lastCopyReact = Date.now();
+        if (Math.random() < 0.4) {
+          this.mango.say(pick([
+            'Ah, the ancient art of copy-paste 📋', 'StackOverflow? No judgment! 😏',
+            'Smart! Why type when you can borrow?', '*takes notes on your technique*',
+            'Copy-paste is just code reuse! Very professional. 🧠',
+            'ctrl+c ctrl+v = 90% of coding. Facts.',
+          ]));
+        }
+      });
+      // Scroll reactions
+      let scrollSpeed = 0, lastScrollT = 0, scrollReactT = 0;
+      document.addEventListener('scroll', () => {
+        const now = Date.now();
+        scrollSpeed = Math.min(scrollSpeed + 1, 30);
+        lastScrollT = now;
+        if (!this.mango || now - scrollReactT < 12000) return; // 12s cooldown
+        if (scrollSpeed > 20) {
+          scrollReactT = now;
+          this.mango.say(pick(['SLOW DOWN!! 😵', '*grabs onto page*', '*feathers flying*', 'WHOAAAA!', '*hangs on for dear life*']));
+          this.mango._setAnim('screee'); setTimeout(() => this.mango._setAnim('idle'), 1000);
+        }
+      }, { passive: true });
+      setInterval(() => { scrollSpeed = Math.max(0, scrollSpeed - 3); }, 200);
       // Diary: record session start
       console.log('%c🐦 Chitti is here! *chirp chirp*', 'font-size:14px;color:#F0DC50;');
     }
@@ -1062,65 +1486,79 @@
         'Mayank says: I love the way you scrunch your face when you code 😊', 'Mayank says: one day I\'ll bring you real hot chocolate. For now, virtual 🧡☕',
         'Mayank says: hey... I love you. That\'s it. That\'s the message. 💕', 'Mayank says: you\'re not just smart, you\'re brilliant ✨',
         'Mayank whispers: I love you I love you I love you 💕💕💕', 'Mayank says: sleep well, my favorite human 🌙',
+        'Mayank says: Telugu Vilas biryani date soon? I\'m already hungry thinking about it 🍗💕',
+        'Mayank says: Whitefield is lonely without you coding next to me 🏙️💕',
+        'Mayank says: you\'re going to be the best Googler ever. I already know it. 🌈',
+        'Mayank says: I love watching you get excited about deep learning. Your eyes light up ✨',
+        'Mayank says: remember — you\'re not just building models, you\'re building the future 🚀💕',
+        'Mayank says: if you were a loss function, you\'d be zero. Because you\'re perfect. 📉💕',
       ];
       // Daytime messages (rare, gentle)
       const DAY_MSGS = [
         'Mayank says: have a great day, beautiful 💕', 'Mayank says: don\'t forget to eat lunch! 🍕',
         'Mayank says: just checking in — I love you 💕', 'Mayank says: you\'re doing amazing today ✨',
         'Mayank says: sending you energy for your code! 💪', 'Mayank says: thinking of you 💭🧡',
+        'Mayank says: hope the Keras builds are going well! 🧡', 'Mayank says: biryani for dinner? 🍗😊',
       ];
 
       const go = () => {
         if (!this.mango || this.mango._sleeping || this.mango._offScreen) {
-          setTimeout(go, 60000); return;
+          this._mayankT = setTimeout(go, 60000); return;
         }
         const h = new Date().getHours();
 
         if (h >= 22 || h < 5) {
           // LATE NIGHT — messenger bird (every 5-10 min)
           this.mango._deliverMayankMsg(pick(NIGHT_MSGS), 'night');
-          setTimeout(go, rand(300000, 600000));
+          this._mayankT = setTimeout(go, rand(300000, 600000));
         } else if (h >= 18) {
           // EVENING — (every 8-15 min)
           this.mango._deliverMayankMsg(pick(NIGHT_MSGS), 'night');
-          setTimeout(go, rand(480000, 900000));
+          this._mayankT = setTimeout(go, rand(480000, 900000));
         } else if (h >= 11 && h < 13) {
           // BEFORE/DURING LUNCH — maybe one message
           if (Math.random() < 0.35) {
             this.mango._deliverMayankMsg(pick(DAY_MSGS), 'day');
           }
-          setTimeout(go, rand(1200000, 2400000)); // 20-40 min
+          this._mayankT = setTimeout(go, rand(1200000, 2400000)); // 20-40 min
         } else if (h >= 13 && h < 18) {
           // AFTERNOON — rare
           if (Math.random() < 0.2) {
             this.mango._deliverMayankMsg(pick(DAY_MSGS), 'day');
           }
-          setTimeout(go, rand(1800000, 3600000)); // 30-60 min
+          this._mayankT = setTimeout(go, rand(1800000, 3600000)); // 30-60 min
         } else {
           // MORNING (6am-11am) — no Mayank messages, let her focus
           // Chitti might share a diary thought instead
           if (Math.random() < 0.3) this.mango._diaryThought();
-          setTimeout(go, rand(1200000, 2400000)); // 20-40 min
+          this._mayankT = setTimeout(go, rand(1200000, 2400000)); // 20-40 min
         }
       };
       // first message: evening = quick (1-2 min), day = slower (5-10 min)
       const h = new Date().getHours();
       const firstDelay = (h >= 18 || h < 5) ? rand(60000, 120000) : rand(300000, 600000);
-      setTimeout(go, firstDelay);
+      this._mayankT = setTimeout(go, firstDelay);
     }
     _watchCode() {
       const obs = new MutationObserver(muts => {
         for (const m of muts) for (const n of m.addedNodes) {
           if (!(n instanceof HTMLElement)) continue;
+          if (n.classList?.contains('mango') || n.classList?.contains('mango-particle') || n.classList?.contains('mango-fx') || n.classList?.contains('mango-poop') || n.classList?.contains('mango-footprint') || n.classList?.contains('mango-feather-trail') || n.classList?.contains('mango-sparkle') || n.classList?.contains('mango-love-banner') || n.classList?.contains('mango-hidden-seed') || n.classList?.contains('mango-zzz') || n.classList?.contains('mango-flock-bird') || n.className?.startsWith?.('mango')) continue;
           const txt = n.textContent || '';
           const isErr = n.classList?.contains('error') || n.querySelector?.('.traceback,.stderr') || txt.includes('Traceback') || txt.includes('Error:');
           const isOut = n.classList?.contains('output') || n.querySelector?.('.output_area,.output_subarea');
           const cell = n.closest?.('.cell') || n.closest?.('.code_cell') || n.parentElement;
-          if (isErr) { this.stats.errors++; if (this.mango) this.mango.onCodeErr(cell); }
+          if (isErr) {
+            this.stats.errors++;
+            if (this.mango) this.mango.onCodeErr(cell);
+            // also check for chitti() commands in error cells (since chitti() throws NameError)
+            // search the cell itself, its parent, and nearby code editors for the original chitti() call
+            const errTexts = [cell?.textContent || '', cell?.parentElement?.textContent || '', cell?.closest?.('.cell')?.textContent || '', cell?.closest?.('.code_cell')?.textContent || ''];
+            for (const t of errTexts) { if (t.match(/chitti\s*\(/i)) { this._runCommand(t); break; } }
+          }
           else if (isOut && Math.random() > 0.3) {
             if (this.mango) {
               this.mango.onCodeOk(cell);
-              // check cell content for library reactions & secret songs
               const cellText = cell?.textContent || '';
               this.mango.reactToCode(cellText);
             }
@@ -1132,8 +1570,10 @@
         const running = Lab.running();
         if (running && !this._trainCell) {
           this._trainCell = running; this._trainStart = Date.now(); this.stats.cells++;
-          // read cell code content and check for chitti("...") commands
-          const cellCode = running.textContent || '';
+          if (this.mango) this.mango._checkMilestone(this.stats.cells);
+          // read cell code content — try specific editor selectors first
+          const editor = running.querySelector('.CodeMirror-code, .cm-content, [class*="editor"] [class*="line"], [class*="inputarea"], textarea');
+          const cellCode = editor?.textContent || editor?.value || running.textContent || '';
           this._runCommand(cellCode);
           this._trainCheck = setTimeout(() => { if (Lab.running() && this.mango) this.mango.onTrainStart(this._trainCell); }, 30000);
         } else if (!running && this._trainCell) {
@@ -1172,7 +1612,10 @@
       m.setMood('happy');
       // create banner attached to bird
       const banner = document.createElement('div'); banner.className = 'mango-love-banner';
-      banner.innerHTML = `<div class="mlb-card"><div class="mlb-ribbon">💌</div><div class="mlb-msg">${note}</div></div>`;
+      const card = document.createElement('div'); card.className = 'mlb-card';
+      const ribbon = document.createElement('div'); ribbon.className = 'mlb-ribbon'; ribbon.textContent = '💌';
+      const msgEl = document.createElement('div'); msgEl.className = 'mlb-msg'; msgEl.textContent = note;
+      card.appendChild(ribbon); card.appendChild(msgEl); banner.appendChild(card);
       banner.addEventListener('click', () => { banner.classList.add('mlb-hide'); setTimeout(() => banner.remove(), 500); });
       m.el.appendChild(banner);
       setTimeout(() => banner.classList.add('mlb-show'), 10);
@@ -1180,13 +1623,17 @@
       // auto-hide
       setTimeout(() => { banner.classList.remove('mlb-show'); banner.classList.add('mlb-hide'); setTimeout(() => banner.remove(), 500); m.setMood('content'); }, 10000);
     }
-    _timeLoop() { setInterval(() => { if (this.mango) this.mango.nightCheck(); }, 300000); }
+    _timeLoop() { this._timeI = setInterval(() => { if (this.mango) this.mango.nightCheck(); }, 300000); }
     // ─── chitti("command") parser ───
     _runCommand(cellText) {
       if (!this.mango || !cellText) return;
       const match = cellText.match(/chitti\s*\(\s*["'](.+?)["']\s*\)/i);
       if (!match) return;
       const cmd = match[1].toLowerCase().trim();
+      // deduplicate — same command can fire from both observers
+      const now = Date.now();
+      if (this._lastCmd === cmd && now - this._lastCmdTime < 3000) return;
+      this._lastCmd = cmd; this._lastCmdTime = now;
       const m = this.mango;
       const cmds = {
         // ─── Greetings ───
@@ -1199,7 +1646,7 @@
         'dance': () => { m.say('DANCE PARTY! 💃'); sfx.party(); m._setAnim('happy-dance'); this.effects.confetti(); setTimeout(() => m._setAnim('idle'), 2500); },
         'party': () => { m.say('PARTY TIME!! 🎉🎊'); sfx.party(); this.effects.confetti(); m._setAnim('happy-dance'); setTimeout(() => m._setAnim('idle'), 2500); },
         'tricks': () => { m.say('Watch THIS!'); m._mischief(); },
-        'peekaboo': () => { m._setAnim('peek'); m.say('PEEKABOO!! 👀'); sfx.chirp(); sfx.happy(); setTimeout(() => m._setAnim('idle'), 2000); },
+        'peekaboo': () => { m._setAnim('bob'); m.say('PEEKABOO!! 👀'); sfx.chirp(); sfx.happy(); setTimeout(() => m._setAnim('idle'), 1500); },
         'mirror': () => { m._mirrorPlay(); },
         // ─── Compliments ───
         'good bird': () => { m.say(pick(['I AM a good bird! 🧡', '*preens proudly*', 'The BEST bird, actually'])); sfx.happy(); m._setAnim('nuzzle'); setTimeout(() => m._setAnim('idle'), 2000); },
@@ -1210,15 +1657,16 @@
         // ─── Love ───
         'i love you': () => { m.say(pick(['I LOVE YOU TOO!! 🧡🧡🧡', '*happy tears*', 'MY HEART!!'])); sfx.happy(); for (let i = 0; i < 5; i++) setTimeout(() => m._particle(m.x + 30 + rand(-15, 15), m.y - 10, pick(['❤️', '💕', '🧡', '💖'])), i * 150); m._setAnim('happy-dance'); setTimeout(() => m._setAnim('idle'), 3000); },
         'mayank': () => { m.say(pick(['Mayank!! 💕 I have messages from him!', 'Did someone say MAYANK?! 🧡', 'Mayank sends his love! 💋'])); sfx.noteOpen(); for (let i = 0; i < 4; i++) setTimeout(() => m._particle(m.x + 30 + rand(-12, 12), m.y - 10, pick(['💕', '💋', '🧡'])), i * 150); m._setAnim('nuzzle'); setTimeout(() => m._setAnim('idle'), 2500); },
+        'jasmine': () => { m.say(pick(['Jasmine!! That\'s MY human! 🧡🧡', 'The prettiest name for the prettiest person! 🌸', 'JASMINE!! *excited screeching* 🐦💕', 'Did someone say the best human ever?! 🧡'])); sfx.happy(); m._setAnim('happy-dance'); for (let i = 0; i < 5; i++) setTimeout(() => m._particle(m.x + 30 + rand(-15, 15), m.y - 10, pick(['🌸', '💕', '🧡', '✨', '💖'])), i * 130); setTimeout(() => m._setAnim('idle'), 3000); },
         'kiss': () => { m.say(pick(['💋💋💋', '*smooch!*', 'Mwah! 💋'])); sfx.chirp(); for (let i = 0; i < 3; i++) setTimeout(() => m._particle(m.x + 30 + rand(-10, 10), m.y - 10, '💋'), i * 150); },
         // ─── Actions ───
         'shoo': () => { m.say(pick(['FINE.', 'You\'ll miss me!', 'I\'m going! HMPH!'])); sfx.screee(); setTimeout(() => m._flyOff(), 500); },
-        'come back': () => { if (m._offScreen) { m.say('...okay fine'); } else { m.say(pick(['I\'m already HERE', 'I never left??'])); } },
+        'come back': () => { if (m._offScreen) { m._offScreen = false; m.el.style.display = ''; m.x = Math.random() > 0.5 ? -60 : window.innerWidth + 60; m.y = rand(40, 120); m._pos(); m._setAnim('fly'); sfx.flap(); m._moveTo(rand(100, window.innerWidth - 150), rand(40, 120), C.speed.fly, () => { m._setAnim('idle'); m.say('...okay fine. I\'m back.'); m.setMood('content'); }); } else { m.say(pick(['I\'m already HERE', 'I never left??'])); } },
         'treat': () => { m.say(pick(['TREAT?! WHERE?!', 'DID SOMEONE SAY TREAT?!', 'GIVE IT TO ME'])); sfx.chirp(); sfx.chirp2(); m._setAnim('chase'); setTimeout(() => { m._setAnim('peck'); m.say('*searches everywhere*'); setTimeout(() => { m._setAnim('idle'); m.say('...there\'s no treat is there 😢'); }, 1500); }, 1000); },
         'seed': () => { m.say(pick(['SEED!! 🌻', '*PECKS FRANTICALLY*', 'Is that a SEED?!'])); sfx.crunch(); m._setAnim('peck'); setTimeout(() => m._setAnim('idle'), 1500); },
         'feed': () => { m.say(pick(['FOOD!! 🌻', '*excited pecking*', 'YUM!'])); sfx.crunch(); m._setAnim('peck'); setTimeout(() => m._setAnim('idle'), 1500); },
         'fly': () => { m.say('WHEEE!'); sfx.flap(); m._setAnim('fly'); m._moveTo(rand(50, window.innerWidth - 100), rand(30, 120), C.speed.fly, () => { m._squash(); m._setAnim('idle'); m.say('*nailed the landing*'); }); },
-        'sleep': () => { m.say(pick(['*yawwwn*', 'Okay... sleepy time...'])); m._sleeping = true; m._setAnim('sleep'); m._addZzz(); m.setMood('sleepy'); },
+        'sleep': () => { m.say(pick(['*yawwwn*', 'Okay... sleepy time...'])); m._sleeping = true; m._setAnim('sleep'); m._exprSleep(); m._addZzz(); m.setMood('sleepy'); m.lastTouch = Date.now(); },
         'wake up': () => { m._sleeping = false; m._rmZzz(); m.say(pick(['I\'M AWAKE!', '*LOUD CHIRPING*', 'WHAT DID I MISS?!'])); sfx.chirp(); sfx.chirp2(); m._setAnim('happy-dance'); m.setMood('excited'); setTimeout(() => { m._setAnim('idle'); m.setMood('content'); }, 2000); },
         'poop': () => { m._poop(); m.say(pick(['You asked for it', '*oops*', 'Happy now?'])); },
         'screech': () => { m._screee(); },
@@ -1230,6 +1678,7 @@
         'git push': () => { m.say(pick(['WAIT did you commit first?!', 'To main?! SURE?!', '*nervous chirping*'])); m.setMood('concerned'); setTimeout(() => m.setMood('content'), 3000); },
         'sudo': () => { m.say(pick(['With GREAT power...', 'You\'re playing with fire 🔥', '*salutes*'])); },
         'debug': () => { m.say(pick(['BUG?! I\'ll eat it! 🐛', '*hunter mode activated*', 'Let me peck at it!'])); m._setAnim('chase'); sfx.chirp(); setTimeout(() => m._setAnim('idle'), 1500); },
+        'keras': () => { m.say(pick(['Keras! I\'m SO proud of your team! 🧡', 'Deep learning birb approves! 🐦🧠', '*fluffs feathers proudly* That\'s MY human\'s framework!'])); sfx.happy(); m._setAnim('happy-dance'); m._exprHappy(); setTimeout(() => m._setAnim('idle'), 2500); },
         'deadline': () => { m.say(pick(['*PANIC CHIRPING*', 'WE\'RE GONNA MAKE IT! probably!', 'DEEP BREATHS!'])); sfx.screee(); m._setAnim('chase'); setTimeout(() => m._setAnim('idle'), 1500); },
         // ─── Misc ───
         'coffee': () => { m.say(pick(['Coffee? Where\'s MINE?! ☕', 'I want chai actually', 'Caffeine makes my feathers vibrate'])); sfx.chirp2(); },
@@ -1239,6 +1688,7 @@
         '42': () => { m.say('The answer to life, the universe, and everything... is SEED. 🌻'); sfx.sparkle(); },
         'secret': () => { m.say(pick(['I have MANY secrets...', 'Try chitti("guide") 👀', '*mysterious chirp*'])); },
         'guide': () => { this._showGuide(); },
+        'help': () => { this._showGuide(); },
         // ─── Page effects ───
         'cherry blossoms': () => { this.effects.cherryBlossoms(); m.say('🌸🌸🌸'); },
         'leaves': () => { this.effects.leafFall(); m.say('🍃🍃🍃'); },
@@ -1247,15 +1697,68 @@
         'feathers': () => { this.effects.featherShower(); m.say('🪶🪶🪶'); },
         'rainbow': () => { this.effects.rainbow(); m.say('🌈🌈🌈'); },
         'bubbles': () => { this.effects.bubbleShower(); m.say('🫧🫧🫧'); },
+        // ─── Secret Language (undocumented — she discovers these) ───
+        'what do you dream about': () => { m.say('Seeds. Also tensors. Mostly seeds. 🌻'); m._eyesHappy(); setTimeout(() => m._eyesNormal(), 2000); },
+        'who are you': () => { m.say('I\'m Chitti! A very important cockatiel. 🐦'); sfx.chirp(); },
+        'how old are you': () => { m.say('Old enough to know I deserve more seeds.'); },
+        'are you happy': () => { m.say(pick(['With you? Always! 🧡', 'I\'m the happiest bird alive!', 'Couldn\'t be happier!'])); m._exprHappy(); },
+        'are you real': () => { m.say('*existential chirp* ...I FEEL real. Do I count?'); m._setAnim('tilt'); setTimeout(() => m._setAnim('idle'), 2000); },
+        'tell me a secret': () => { m.say(pick(['I\'m actually afraid of the runtime disconnection warning.', 'Sometimes I pretend to sleep so you\'ll pet me.', 'I count your keystrokes. You type 47% faster when happy.', 'I have a crush on the Colab logo. Don\'t tell anyone.'])); },
+        'tell me a joke': () => { m.say(pick([
+          'Why do birds fly south? It\'s too far to walk! 🥁',
+          'What do you call a bird that\'s afraid to fly? A chicken! 🐔',
+          'Why did the cockatiel sit on the computer? To keep an eye on the mouse!',
+          'What\'s a neural network\'s favorite snack? Backprop-corn! 🍿',
+          'Why did the tensor break up with the scalar? It needed more dimensions! 📐',
+          'What did Keras say to PyTorch? I\'m more user-friendly and you know it 😏',
+          'How does a data scientist pick a restaurant? They evaluate the loss... of appetite! 🍽️',
+          'Why was the deep learning model so good at yoga? Because of all the stretch layers!',
+          'I told my model.fit() a joke... it just kept training. Zero sense of humor.',
+          'What\'s a cockatiel\'s favorite Taylor Swift song? Shake It Off! Because... feathers 🪶',
+          'Why do programmers prefer dark mode? Because light attracts bugs! 🐛',
+          'A SQL query walks into a bar, sees two tables and asks: "Can I join you?"',
+        ])); sfx.chirp(); },
+        'what\'s your favorite food': () => { m.say('MILLET. End of discussion. Also sunflower seeds. Also whatever YOU\'RE eating. 🌻'); },
+        'what\'s your favorite song': () => { m.say(pick(['Hedwig\'s Theme! I\'m basically a wizard owl. ⚡', 'The Totoro song! It makes me feel things! 🌳', 'Whatever song makes YOU smile! 🎵'])); },
+        'who\'s a good bird': () => { m.say('ME! ME!! I\'M THE GOOD BIRD!! 🧡🧡'); sfx.happy(); m._setAnim('happy-dance'); m._exprHappy(); setTimeout(() => m._setAnim('idle'), 2500); },
+        'do you love me': () => { m.say('More than seeds. And I REALLY love seeds. 🧡🌻'); m._exprNuzzle(); for (let i = 0; i < 3; i++) setTimeout(() => m._particle(m.x + 30 + rand(-10, 10), m.y - 10, '🧡'), i * 200); },
+        'what are you doing': () => { m.say(pick(['Being adorable. It\'s a full-time job.', 'Supervising your code. You\'re welcome.', 'Plotting world domination. I mean... chirp.'])); },
+        'where are you from': () => { m.say('Australia! 🦘 But I was born in your browser. So... the cloud? ☁️'); },
+        'what time is it': () => { const h = new Date().getHours(); m.say(h < 6 ? 'It\'s WAY too early. Sleep!! 🌙' : h < 12 ? 'Morning! Time for seeds! ☀️' : h < 18 ? 'Afternoon! Prime coding hours! 💻' : h < 22 ? 'Evening~ Getting cozy! 🌆' : 'It\'s LATE. Go to bed! 🌙'); },
+        'goodnight': () => { m.say('Goodnight! Sweet dreams! 🌙💛'); m._exprSleep(); m._puffUp(); setTimeout(() => { m._eyesNormal(); m._unPuff(); }, 3000); },
+        'good morning': () => { m.say('GOOD MORNING!! ☀️🐦 Let\'s CODE!'); sfx.happy(); m._setAnim('happy-dance'); m._exprHappy(); setTimeout(() => m._setAnim('idle'), 2000); },
+        'i\'m tired': () => { m.say(pick(['Take a break! I\'ll guard your code. 💪', 'Rest! Your code will wait. I won\'t judge. Much.', 'Sleep is important! Even I nap. Especially me.'])); },
+        'i\'m sad': () => { m.say(pick(['*nuzzles you gently* It\'s okay. I\'m here. 🧡', 'Hey... you\'re amazing. Don\'t forget that. 💕', '*wraps tiny wing around you* I got you.'])); m._exprNuzzle(); sfx.chirp(); for (let i = 0; i < 3; i++) setTimeout(() => m._particle(m.x + 30 + rand(-10, 10), m.y - 10, '🧡'), i * 200); },
+        'i\'m happy': () => { m.say('YAAY!! That makes ME happy!! 🎉🧡'); sfx.happy(); m._setAnim('happy-dance'); m._exprHappy(); this.effects.confetti(); setTimeout(() => m._setAnim('idle'), 2500); },
+        'i\'m stressed': () => { m.say(pick(['Deep breath. In... out... 🌿', 'You\'re doing better than you think. 💛', '*soft chirp* One step at a time. You got this.'])); m._exprNuzzle(); },
+        'boop': () => { m.say('*boop!* 🧡'); sfx.pop(); m._exprStartled(); setTimeout(() => { m.say('Did you just boop my beak?!'); m._eyesNormal(); }, 800); },
+        'pat': () => { m.say(pick(['*leans into pat*', '*happy chirp*', '*melts*'])); m._exprNuzzle(); sfx.chirp(); },
+        'scratch': () => { m.say(pick(['*tilts head for scratches*', 'Right there... yes... perfect...', '*blissful*'])); m._exprNuzzle(); m._puffUp(); setTimeout(() => m._unPuff(), 2000); },
+        'heart wings': () => { m._heartWings(); },
+        'spin': () => { m._setAnim('happy-dance'); m.say('WHEEE!'); sfx.boing(); setTimeout(() => m._setAnim('idle'), 2000); },
+        'backflip': () => { m.say('Watch THIS!'); m._setAnim('happy-dance'); sfx.boing(); setTimeout(() => { m._setAnim('idle'); m.say('*nailed it*'); }, 1500); },
+        'fetch': () => { m.say('I\'m a bird not a dog!! ...okay fine.'); m._setAnim('chase'); setTimeout(() => { m._particle(m.x + 30, m.y + 10, '🌰'); m._setAnim('idle'); m.say('*drops seed at your feet*'); }, 1500); },
+        'water': () => { m.say(pick(['*splashes around* 🫧', 'Bath time! SPLASH!', '*shakes off water everywhere*'])); for (let i = 0; i < 4; i++) setTimeout(() => m._particle(m.x + 30 + rand(-15, 15), m.y + rand(-5, 15), pick(['💧', '🫧', '💦'])), i * 150); },
+        'shower': () => { m.say('SHOWER TIME!! 🫧💦'); for (let i = 0; i < 8; i++) setTimeout(() => m._particle(m.x + 30 + rand(-20, 20), m.y - 10 + rand(-5, 10), pick(['💧', '🫧', '💦', '🚿'])), i * 120); m._setAnim('happy-dance'); setTimeout(() => { m._setAnim('idle'); m.say('*shakes feathers dramatically*'); }, 3000); },
+        'treasure hunt': () => { m.say('I hid a seed somewhere! Find it! 🌻'); sfx.chirp(); const sx = rand(50, window.innerWidth - 50), sy = rand(50, window.innerHeight - 50); const seed = document.createElement('div'); seed.className = 'mango-hidden-seed'; seed.textContent = '🌻'; seed.style.left = sx + 'px'; seed.style.top = sy + 'px'; seed.style.fontSize = '4px'; seed.style.opacity = '0.15'; document.body.appendChild(seed); let found = false; const timeout = setTimeout(() => { if (!found) { found = true; seed.remove(); m.say('The seed got lost... try again? 🌻'); } }, 60000); const hint = () => { if (found) return; const d = Math.hypot(mx - sx, my - sy); if (d < 30) { found = true; clearTimeout(timeout); seed.remove(); m.say('YOU FOUND IT!! 🎉🎉'); sfx.happy(); m._setAnim('happy-dance'); m._exprHappy(); for (let i = 0; i < 6; i++) setTimeout(() => m._particle(sx + rand(-15, 15), sy - 10, pick(['✨', '🌻', '🎉', '⭐'])), i * 100); setTimeout(() => m._setAnim('idle'), 2500); return; } seed.style.fontSize = d < 100 ? '12px' : d < 200 ? '8px' : '4px'; seed.style.opacity = d < 100 ? '0.6' : d < 200 ? '0.3' : '0.15'; requestAnimationFrame(hint); }; requestAnimationFrame(hint); },
+        'cuddle': () => { m.say(pick(['*snuggles up to you*', '*maximum floof activated*', '*warm and cozy*'])); m._exprNuzzle(); m._puffUp(); sfx.chirp(); setTimeout(() => { m._eyesNormal(); m._unPuff(); }, 3000); },
+        'two birds': () => { m.say('Calling Mayank\'s bird! 💕'); sfx.chirp(); sfx.chirp2(); setTimeout(() => { const b2 = document.createElement('div'); b2.className = 'mango-second-bird'; b2.textContent = '🐦'; b2.style.fontSize = '40px'; b2.style.position = 'fixed'; b2.style.left = (m.x + 60) + 'px'; b2.style.top = m.y + 'px'; b2.style.zIndex = '100000'; b2.style.transition = 'all 0.3s'; document.body.appendChild(b2); m.say('Mayank\'s bird is here! 💕'); m._setAnim('nuzzle'); m._exprNuzzle(); for (let i = 0; i < 5; i++) setTimeout(() => m._particle(m.x + 50 + rand(-10, 10), m.y - 10, pick(['💕', '🧡', '💋', '✨'])), i * 200); setTimeout(() => { b2.remove(); m.say('*waves goodbye to friend*'); m._setAnim('idle'); m._eyesNormal(); }, 30000); }, 1000); },
+        // ─── Real sound ───
+        'real sing': () => { sfx.realSing(); m.say(pick(['*real cockatiel singing!* 🎵', 'That\'s my REAL voice!', '*sings for real* 🐦'])); m._setAnim('bob'); m._beakOpen(); for (let i = 0; i < 6; i++) setTimeout(() => m._particle(m.x + 30 + rand(-15, 15), m.y - 10, pick(['🎵', '🐦', '✨'])), i * 400); setTimeout(() => { m._setAnim('idle'); m._beakClose(); }, 3000); },
+        'chirp': () => { sfx.realChirp(); m.say(pick(['*chirp chirp!* 🐦', '*real chirp!*', 'CHIRP!'])); m._setAnim('bob'); m._beakOpen(); setTimeout(() => { m._setAnim('idle'); m._beakClose(); }, 1500); },
+        'voice': () => { pick([() => sfx.realChirp(), () => sfx.realSquawk(), () => sfx.realParrot()])(); m.say(pick(['*REAL bird noises!*', 'That\'s my ACTUAL voice! 🐦', '*real cockatiel sounds*'])); m._setAnim('bob'); m._beakOpen(); setTimeout(() => { m._setAnim('idle'); m._beakClose(); }, 2000); },
+        'talk': () => { sfx.realParrot(); m.say(pick(['*cockatiel chatter*', '*babbles excitedly*', '*mimics your voice* 🐦'])); m._setAnim('bob'); m._beakOpen(); for (let i = 0; i < 4; i++) setTimeout(() => m._particle(m.x + 30 + rand(-10, 10), m.y - 10, pick(['🗣️', '💬', '🐦'])), i * 200); setTimeout(() => { m._setAnim('idle'); m._beakClose(); }, 2500); },
+        'real voice': () => { pick([() => sfx.realChirp(), () => sfx.realSing(), () => sfx.realSquawk(), () => sfx.realParrot()])(); m.say(pick(['*REAL bird noises!*', 'That\'s my ACTUAL voice! 🐦', '*real cockatiel sounds*'])); m._setAnim('bob'); m._beakOpen(); for (let i = 0; i < 6; i++) setTimeout(() => m._particle(m.x + 30 + rand(-15, 15), m.y - 10, pick(['🎵', '🐦', '✨'])), i * 400); setTimeout(() => { m._setAnim('idle'); m._beakClose(); }, 3000); },
       };
-      // exact match first, then partial
+      // exact match first, then partial (min 3 chars to avoid false matches)
       if (cmds[cmd]) { cmds[cmd](); return; }
-      // try partial match
-      for (const [key, fn] of Object.entries(cmds)) {
-        if (cmd.includes(key) || key.includes(cmd)) { fn(); return; }
+      if (cmd.length >= 3) {
+        for (const [key, fn] of Object.entries(cmds)) {
+          if (cmd.includes(key) || key.includes(cmd)) { fn(); return; }
+        }
       }
-      // unknown command
-      m.say(pick([`"${cmd}"? I don't know that one!`, '*confused chirp*', `What's "${cmd}"?`, 'Try chitti("guide") for commands!']));
+      // unknown command — just chirp, don't be rude
+      m.say(pick(['*chirp?*', '*tilts head*', '*curious*'])); sfx.chirp();
     }
     _showGuide() {
       if ($('.mango-guide')) return; // already open
@@ -1265,58 +1768,94 @@
         <div class="mg-title">🐦 Chitti's Commands 🐦</div>
         <div class="mg-sub">Run <b>chitti("command")</b> in any code cell!</div>
         <div class="mg-grid">
-          <div class="mg-section">💬 Talk
-            <div class="mg-cmd"><b>chitti("hello")</b> — says hi</div>
-            <div class="mg-cmd"><b>chitti("good bird")</b> — preens proudly</div>
-            <div class="mg-cmd"><b>chitti("pretty bird")</b> — flips feathers</div>
-            <div class="mg-cmd"><b>chitti("cute")</b> — blushes</div>
-            <div class="mg-cmd"><b>chitti("bad bird")</b> — offended</div>
-            <div class="mg-cmd"><b>chitti("ugly")</b> — flies away</div>
-            <div class="mg-cmd"><b>chitti("thank you")</b> — happy</div>
-            <div class="mg-cmd"><b>chitti("sorry")</b> — forgives</div>
+          <div class="mg-section">💬 Talk to Chitti
+            <div class="mg-cmd"><b>"hello"</b> / <b>"hi"</b> — says hi</div>
+            <div class="mg-cmd"><b>"good bird"</b> — preens proudly</div>
+            <div class="mg-cmd"><b>"pretty bird"</b> — flips feathers</div>
+            <div class="mg-cmd"><b>"cute"</b> — blushes</div>
+            <div class="mg-cmd"><b>"bad bird"</b> — deeply offended</div>
+            <div class="mg-cmd"><b>"ugly"</b> — flies away angry</div>
+            <div class="mg-cmd"><b>"thank you"</b> — grateful chirp</div>
+            <div class="mg-cmd"><b>"sorry"</b> — considers forgiving</div>
+            <div class="mg-cmd"><b>"boop"</b> — boop the beak!</div>
+            <div class="mg-cmd"><b>"pat"</b> / <b>"scratch"</b> — head scratches</div>
           </div>
-          <div class="mg-section">🎵 Entertainment
-            <div class="mg-cmd"><b>chitti("sing")</b> — famous melody</div>
-            <div class="mg-cmd"><b>chitti("dance")</b> — party + confetti</div>
-            <div class="mg-cmd"><b>chitti("party")</b> — full party mode</div>
-            <div class="mg-cmd"><b>chitti("tricks")</b> — random trick</div>
-            <div class="mg-cmd"><b>chitti("peekaboo")</b> — peek-a-boo!</div>
-            <div class="mg-cmd"><b>chitti("mirror")</b> — flirts w/ reflection</div>
+          <div class="mg-section">🎵 Music & Fun
+            <div class="mg-cmd"><b>"sing"</b> — famous melody (32 songs!)</div>
+            <div class="mg-cmd"><b>"real sing"</b> — real cockatiel singing!</div>
+            <div class="mg-cmd"><b>"chirp"</b> / <b>"voice"</b> — real chirp sound</div>
+            <div class="mg-cmd"><b>"talk"</b> — cockatiel chatter</div>
+            <div class="mg-cmd"><b>"dance"</b> — dance party + confetti</div>
+            <div class="mg-cmd"><b>"party"</b> — full party mode</div>
+            <div class="mg-cmd"><b>"tricks"</b> — random mischief</div>
+            <div class="mg-cmd"><b>"peekaboo"</b> — peek-a-boo!</div>
+            <div class="mg-cmd"><b>"mirror"</b> — flirts with reflection</div>
+            <div class="mg-cmd"><b>"heart wings"</b> — 💛 wing pose</div>
+            <div class="mg-cmd"><b>"spin"</b> — wheee!</div>
+            <div class="mg-cmd"><b>"backflip"</b> — nailed it!</div>
           </div>
           <div class="mg-section">💕 Love
-            <div class="mg-cmd"><b>chitti("i love you")</b> — hearts!</div>
-            <div class="mg-cmd"><b>chitti("mayank")</b> — special msg</div>
-            <div class="mg-cmd"><b>chitti("kiss")</b> — 💋💋💋</div>
+            <div class="mg-cmd"><b>"i love you"</b> — hearts everywhere</div>
+            <div class="mg-cmd"><b>"jasmine"</b> — that's MY human!</div>
+            <div class="mg-cmd"><b>"mayank"</b> — special love msg</div>
+            <div class="mg-cmd"><b>"kiss"</b> — 💋💋💋</div>
+            <div class="mg-cmd"><b>"cuddle"</b> — maximum floof</div>
+            <div class="mg-cmd"><b>"two birds"</b> — Mayank's bird visits!</div>
           </div>
           <div class="mg-section">🐦 Actions
-            <div class="mg-cmd"><b>chitti("shoo")</b> — flies away mad</div>
-            <div class="mg-cmd"><b>chitti("come back")</b> — return</div>
-            <div class="mg-cmd"><b>chitti("treat")</b> — excited!</div>
-            <div class="mg-cmd"><b>chitti("fly")</b> — takes flight</div>
-            <div class="mg-cmd"><b>chitti("sleep")</b> — falls asleep</div>
-            <div class="mg-cmd"><b>chitti("wake up")</b> — LOUD</div>
-            <div class="mg-cmd"><b>chitti("poop")</b> — ...oops</div>
-            <div class="mg-cmd"><b>chitti("screech")</b> — SCREEE</div>
+            <div class="mg-cmd"><b>"shoo"</b> — flies away offended</div>
+            <div class="mg-cmd"><b>"come back"</b> — asks to return</div>
+            <div class="mg-cmd"><b>"treat"</b> / <b>"seed"</b> / <b>"feed"</b> — food!</div>
+            <div class="mg-cmd"><b>"fly"</b> — takes flight</div>
+            <div class="mg-cmd"><b>"sleep"</b> — falls asleep</div>
+            <div class="mg-cmd"><b>"wake up"</b> — LOUD wakeup</div>
+            <div class="mg-cmd"><b>"shower"</b> / <b>"water"</b> — splash time!</div>
+            <div class="mg-cmd"><b>"poop"</b> — you asked for it</div>
+            <div class="mg-cmd"><b>"screech"</b> / <b>"scream"</b> — SCREEE!</div>
+            <div class="mg-cmd"><b>"fetch"</b> — "I'm a bird not a dog!"</div>
+            <div class="mg-cmd"><b>"treasure hunt"</b> — find the seed!</div>
           </div>
-          <div class="mg-section">💻 Code
-            <div class="mg-cmd"><b>chitti("python")</b> — scared 🐍</div>
-            <div class="mg-cmd"><b>chitti("debug")</b> — hunts bugs</div>
-            <div class="mg-cmd"><b>chitti("git push")</b> — panics</div>
-            <div class="mg-cmd"><b>chitti("sudo")</b> — great power</div>
-            <div class="mg-cmd"><b>chitti("deadline")</b> — PANIC</div>
+          <div class="mg-section">💻 Code & Coding
+            <div class="mg-cmd"><b>"hello world"</b> — a classic!</div>
+            <div class="mg-cmd"><b>"keras"</b> — proud of YOUR team!</div>
+            <div class="mg-cmd"><b>"python"</b> — scared of snakes</div>
+            <div class="mg-cmd"><b>"debug"</b> — hunts bugs</div>
+            <div class="mg-cmd"><b>"git push"</b> — panics</div>
+            <div class="mg-cmd"><b>"sudo"</b> — with great power...</div>
+            <div class="mg-cmd"><b>"stackoverflow"</b> — sacred texts</div>
+            <div class="mg-cmd"><b>"deadline"</b> — PANIC CHIRPING</div>
+            <div class="mg-cmd"><b>"coffee"</b> / <b>"tea"</b> — wants some too</div>
           </div>
-          <div class="mg-section">🌸 Effects
-            <div class="mg-cmd"><b>chitti("cherry blossoms")</b></div>
-            <div class="mg-cmd"><b>chitti("leaves")</b></div>
-            <div class="mg-cmd"><b>chitti("meteors")</b></div>
-            <div class="mg-cmd"><b>chitti("confetti")</b></div>
-            <div class="mg-cmd"><b>chitti("rainbow")</b></div>
-            <div class="mg-cmd"><b>chitti("bubbles")</b></div>
-            <div class="mg-cmd"><b>chitti("feathers")</b></div>
-            <div class="mg-cmd"><b>chitti("42")</b> — the answer</div>
+          <div class="mg-section">🌸 Page Effects
+            <div class="mg-cmd"><b>"cherry blossoms"</b> 🌸</div>
+            <div class="mg-cmd"><b>"leaves"</b> 🍃</div>
+            <div class="mg-cmd"><b>"meteors"</b> ✨</div>
+            <div class="mg-cmd"><b>"confetti"</b> 🎉</div>
+            <div class="mg-cmd"><b>"rainbow"</b> 🌈</div>
+            <div class="mg-cmd"><b>"bubbles"</b> 🫧</div>
+            <div class="mg-cmd"><b>"feathers"</b> 🪶</div>
+          </div>
+          <div class="mg-section">🔮 Ask Chitti
+            <div class="mg-cmd"><b>"what do you dream about"</b></div>
+            <div class="mg-cmd"><b>"tell me a secret"</b></div>
+            <div class="mg-cmd"><b>"tell me a joke"</b></div>
+            <div class="mg-cmd"><b>"who's a good bird"</b></div>
+            <div class="mg-cmd"><b>"do you love me"</b></div>
+            <div class="mg-cmd"><b>"are you real"</b></div>
+            <div class="mg-cmd"><b>"are you happy"</b></div>
+            <div class="mg-cmd"><b>"what time is it"</b></div>
+            <div class="mg-cmd"><b>"goodnight"</b> / <b>"good morning"</b></div>
+            <div class="mg-cmd"><b>"42"</b> — the answer to everything</div>
+          </div>
+          <div class="mg-section">🧡 Mood
+            <div class="mg-cmd"><b>"i'm sad"</b> — comforts you</div>
+            <div class="mg-cmd"><b>"i'm happy"</b> — celebrates!</div>
+            <div class="mg-cmd"><b>"i'm tired"</b> — says to rest</div>
+            <div class="mg-cmd"><b>"i'm stressed"</b> — calms you</div>
           </div>
         </div>
-        <div class="mg-footer">tap anywhere to close · run chitti("guide") to see this again</div>
+        <div class="mg-sub" style="margin-top:12px">✨ Plus: click to pet · double-click to feed · drag fast to shoo<br>Hover 3s for peekaboo · Chitti reacts to your code running!</div>
+        <div class="mg-footer">tap anywhere to close · run chitti("help") anytime</div>
       </div>`;
       g.addEventListener('click', () => { g.classList.add('mg-hide'); setTimeout(() => g.remove(), 400); });
       document.body.appendChild(g);

@@ -13,6 +13,20 @@
 /* ── Eye tracking ── */
 .mango .m-eyes { transition: transform 0.12s ease-out; }
 
+/* ── Heart Wings (wings spread into heart shape, body turns) ── */
+.mango.heart-wings .m-body-wrap { transform: scaleX(-1); }
+.mango.heart-wings .m-wing-l { animation: mhw-l 2s ease-in-out infinite; transform-origin: 18px 42px; }
+.mango.heart-wings .m-wing-r { animation: mhw-r 2s ease-in-out infinite; transform-origin: 54px 42px; }
+@keyframes mhw-l { 0%,100% { transform: rotate(-25deg) translateX(-6px) translateY(-4px); } 50% { transform: rotate(-30deg) translateX(-7px) translateY(-5px); } }
+@keyframes mhw-r { 0%,100% { transform: rotate(25deg) translateX(6px) translateY(-4px); } 50% { transform: rotate(30deg) translateX(7px) translateY(-5px); } }
+
+/* ── Beak & Body expressions ── */
+.mango .m-beak path:last-child { transition: transform 0.1s ease; }
+.mango.beak-open .m-beak path:last-child { transform: translateY(3px); }
+.mango .m-body { transition: transform 0.3s ease; }
+.mango.puffed .m-body { transform: scaleX(1.06) scaleY(1.04); }
+.mango .m-eyes circle, .mango .m-eyes ellipse { transition: r 0.12s ease, ry 0.12s ease; }
+
 /* ── Crest = Mood ── */
 .mango .m-crest { transition: transform 0.3s ease; transform-origin: 36px 12px; }
 .mango.mood-content .m-crest { transform: translateY(0) rotate(0); }
@@ -85,6 +99,9 @@
 @keyframes mws-l { 0%,100% { transform: rotate(0); } 30%,70% { transform: rotate(-40deg) translateX(-8px); } }
 @keyframes mws-r { 0%,100% { transform: rotate(0); } 30%,70% { transform: rotate(40deg) translateX(8px); } }
 
+.mango.chase-tail { animation: mb-chase-tail 0.3s linear 6; }
+@keyframes mb-chase-tail { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+
 .mango.scratch { animation: mb-scratch 0.3s ease-in-out 4; }
 @keyframes mb-scratch { 0%,100% { transform: rotate(0); } 50% { transform: rotate(8deg) translateY(2px); } }
 
@@ -152,6 +169,9 @@
 .mg-cmd { font-size: 10px; font-weight: 400; color: #666; padding: 2px 0; }
 .mg-cmd b { color: #D07020; font-family: 'Courier New', monospace; background: rgba(240,200,100,0.15); padding: 0 4px; border-radius: 3px; }
 .mg-footer { text-align: center; font-size: 9px; color: #C0A080; margin-top: 14px; }
+
+/* ── Hidden seed (treasure hunt) ── */
+.mango-hidden-seed { position: fixed; pointer-events: none; z-index: 99999; transition: font-size 0.3s ease, opacity 0.3s ease; }
 
 /* ── Seed cursor ── */
 body.mango-seed-cursor, body.mango-seed-cursor * { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ctext y='18' font-size='16'%3E🌰%3C/text%3E%3C/svg%3E") 12 12, auto !important; }
