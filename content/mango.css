@@ -220,3 +220,23 @@ body.mango-seed-cursor, body.mango-seed-cursor * { cursor: url("data:image/svg+x
 .mango-dream::before { content: ''; position: absolute; bottom: -8px; left: 12px; width: 8px; height: 8px; background: white; border: 1.5px solid #C8D8F0; border-radius: 50%; }
 .mango-dream::after { content: ''; position: absolute; bottom: -14px; left: 8px; width: 5px; height: 5px; background: white; border: 1.5px solid #C8D8F0; border-radius: 50%; }
 @keyframes md-float { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 15% { opacity: 0.85; transform: translateY(-5px) scale(1); } 75% { opacity: 0.85; transform: translateY(-25px) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(0.7); } }
+
+/* ── Foot-tap dance ── */
+.mango.foot-tap .m-feet { animation: mft-tap 0.12s ease-in-out 12; }
+@keyframes mft-tap { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.mango.foot-tap { animation: mb-bob 0.3s ease-in-out 6; }
+
+/* ── Nest ── */
+.mango-nest { position: fixed; bottom: 20px; right: 80px; pointer-events: none; z-index: 99997; font-size: 12px; opacity: 0.7; transition: opacity 0.5s; }
+
+/* ── Tumble-fall (slipping off code) ── */
+.mango.tumble-fall { animation: mb-tumble 1.2s ease-in forwards; }
+@keyframes mb-tumble {
+  0% { transform: rotate(0) translateY(0); }
+  20% { transform: rotate(-15deg) translateY(20px); }
+  60% { transform: rotate(-40deg) translateY(200px); }
+  100% { transform: rotate(540deg) translateY(100vh); opacity: 0; }
+}
+
+/* ── Bug hunt target ── */
+.mango-bug { position: fixed; pointer-events: none; z-index: 100006; font-size: 8px; transition: left 0.3s ease, top 0.3s ease; }

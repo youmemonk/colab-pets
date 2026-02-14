@@ -234,6 +234,26 @@ body.mango-seed-cursor, body.mango-seed-cursor * { cursor: url("data:image/svg+x
 .mango-dream::before { content: ''; position: absolute; bottom: -8px; left: 12px; width: 8px; height: 8px; background: white; border: 1.5px solid #C8D8F0; border-radius: 50%; }
 .mango-dream::after { content: ''; position: absolute; bottom: -14px; left: 8px; width: 5px; height: 5px; background: white; border: 1.5px solid #C8D8F0; border-radius: 50%; }
 @keyframes md-float { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 15% { opacity: 0.85; transform: translateY(-5px) scale(1); } 75% { opacity: 0.85; transform: translateY(-25px) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(0.7); } }
+
+/* ── Foot-tap dance ── */
+.mango.foot-tap .m-feet { animation: mft-tap 0.12s ease-in-out 12; }
+@keyframes mft-tap { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.mango.foot-tap { animation: mb-bob 0.3s ease-in-out 6; }
+
+/* ── Nest ── */
+.mango-nest { position: fixed; bottom: 20px; right: 80px; pointer-events: none; z-index: 99997; font-size: 12px; opacity: 0.7; transition: opacity 0.5s; }
+
+/* ── Tumble-fall (slipping off code) ── */
+.mango.tumble-fall { animation: mb-tumble 1.2s ease-in forwards; }
+@keyframes mb-tumble {
+  0% { transform: rotate(0) translateY(0); }
+  20% { transform: rotate(-15deg) translateY(20px); }
+  60% { transform: rotate(-40deg) translateY(200px); }
+  100% { transform: rotate(540deg) translateY(100vh); opacity: 0; }
+}
+
+/* ── Bug hunt target ── */
+.mango-bug { position: fixed; pointer-events: none; z-index: 100006; font-size: 8px; transition: left 0.3s ease, top 0.3s ease; }
 `;
   document.head.appendChild(style);
 })();
@@ -341,6 +361,10 @@ const _CHITTI_SOUNDS = {
     party() { [500, 600, 700, 800, 900, 1000, 1200].forEach((n, i) => setTimeout(() => this._t('sine', [n, n * 1.2], 0.08, 0.05), i * 55)); }
     noteOpen() { this._t('sine', [600, 900, 1200, 1600], 0.35, 0.05); }
     flap() { this._t('triangle', [200, 400, 200], 0.06, 0.03); }
+    bark() { this._t('sawtooth', [200, 400, 300], 0.15, C.vol); }
+    meow() { this._t('sine', [800, 1200, 600], 0.3, C.vol); }
+    quack() { this._t('square', [400, 300], 0.08, C.vol); }
+    ribbit() { this._t('triangle', [150, 300, 150], 0.12, C.vol); }
     // simple random whistle
     whistle() {
       const m = pick([
@@ -538,54 +562,110 @@ const _CHITTI_SOUNDS = {
             [330, 4700], [416, 5000], [494, 5300], [523, 5700]
           ]
         },
-        // ─── Hindi / Bollywood ───
+        // ─── Cockatiel favorites & more classics ───
         {
-          name: 'Tum Hi Ho 💕', notes: [ // Aashiqui 2
-            [349, 0], [415, 350], [523, 700], [554, 1050], [415, 1400], [466, 1750], [392, 2100],
-            [415, 2600], [523, 2950], [698, 3300], [622, 3650], [622, 3900], [554, 4150], [554, 4400], [523, 4650], [466, 4900], [415, 5150], [466, 5400], [554, 5700], [523, 6000]
+          name: 'If You\'re Happy 👏', notes: [ // Cockatiels love this one!
+            [392, 0], [392, 250], [440, 500], [440, 750], [494, 1000], [494, 1250],
+            [523, 1500], [523, 1750], [494, 2050], [440, 2300], [392, 2550],
+            [440, 3000], [440, 3250], [494, 3500], [494, 3750], [523, 4000], [523, 4250], [587, 4500], [587, 4750], [523, 5050], [494, 5300], [440, 5550]
           ]
         },
         {
-          name: 'Kal Ho Naa Ho 🌅', notes: [
-            [392, 0], [440, 300], [523, 600], [440, 900], [349, 1200], [392, 1500], [440, 1800], [392, 2100],
-            [392, 2600], [523, 2900], [494, 3150], [523, 3400], [494, 3650], [523, 3900], [494, 4150], [523, 4400], [659, 4700], [587, 5000], [523, 5300], [494, 5600], [440, 5900], [494, 6200]
+          name: 'Pop Goes the Weasel 🎪', notes: [ // Classic cockatiel whistle
+            [392, 0], [440, 300], [494, 600], [523, 900], [587, 1200], [523, 1500],
+            [494, 1900], [440, 2200], [392, 2500], [440, 2800], [494, 3100], [523, 3400],
+            [659, 3800], [587, 4100], [523, 4400], [494, 4700], [440, 5000]
           ]
         },
         {
-          name: 'Tujhe Dekha To 🎬', notes: [ // DDLJ — iconic
-            [330, 0], [330, 300], [330, 600], [494, 900], [440, 1200], [494, 1500], [392, 1850], [440, 2150], [523, 2450], [494, 2750],
-            [330, 3200], [330, 3500], [330, 3800], [494, 4100], [440, 4400], [494, 4700], [392, 5000], [440, 5300], [392, 5600], [370, 5900]
+          name: 'Cantina Band 🍸', notes: [ // Star Wars — cockatiels love this!
+            [440, 0], [440, 100], [440, 200], [440, 350], [587, 500], [587, 650], [523, 800], [440, 1000],
+            [587, 1200], [523, 1350], [440, 1500], [392, 1700], [392, 1850], [392, 1950],
+            [440, 2150], [440, 2250], [440, 2350], [440, 2500], [587, 2650], [587, 2800], [523, 2950], [440, 3150],
+            [587, 3350], [784, 3550], [740, 3750], [659, 3950], [587, 4150]
           ]
         },
         {
-          name: 'Pehla Nasha 🥰', notes: [ // Jo Jeeta Wohi Sikandar
-            [494, 0], [494, 300], [587, 600], [587, 900], [659, 1250],
-            [494, 1700], [392, 2000], [440, 2300], [587, 2650], [587, 2950], [740, 3250], [784, 3550],
-            [494, 4100], [494, 4400], [587, 4700], [587, 5000], [659, 5300], [587, 5600], [523, 5900], [494, 6200], [440, 6500], [440, 6800], [494, 7100], [440, 7400]
+          name: 'Andy Griffith Theme 🎣', notes: [ // Famous cockatiel whistle tune
+            [784, 0], [880, 200], [988, 400], [1047, 600], [988, 900], [784, 1200],
+            [880, 1500], [784, 1800], [659, 2100], [784, 2400], [659, 2700],
+            [784, 3100], [880, 3300], [988, 3500], [1047, 3700], [988, 4000], [784, 4300],
+            [880, 4600], [784, 4900], [659, 5200]
           ]
         },
         {
-          name: 'Kesariya 🧡', notes: [ // Brahmastra
-            [523, 0], [659, 300], [587, 600], [659, 900], [587, 1200], [523, 1500], [494, 1800], [523, 2100],
-            [784, 2500], [784, 2750], [784, 3000], [880, 3300], [784, 3600], [698, 3900], [659, 4200], [587, 4500]
+          name: 'Jingle Bells 🔔', notes: [ // Cockatiels LOVE this
+            [330, 0], [330, 250], [330, 550], [330, 850], [330, 1100], [330, 1400],
+            [330, 1700], [392, 1950], [262, 2200], [294, 2450], [330, 2750],
+            [349, 3100], [349, 3350], [349, 3650], [349, 3900], [330, 4150], [330, 4400],
+            [330, 4700], [330, 4950], [392, 5200], [392, 5450], [349, 5700], [294, 5950], [262, 6200]
           ]
         },
         {
-          name: 'Channa Mereya 💔', notes: [ // Ae Dil Hai Mushkil
-            [494, 0], [494, 250], [587, 500], [523, 750], [523, 1000], [523, 1200], [523, 1400], [494, 1650], [587, 1900], [523, 2150], [523, 2400],
-            [440, 2750], [392, 3000], [440, 3250], [440, 3500], [440, 3750], [523, 4000], [494, 4250], [440, 4500], [440, 4750]
+          name: 'Viva la Vida 🏰', notes: [ // Coldplay
+            [440, 0], [440, 200], [523, 400], [587, 700], [587, 900], [587, 1100], [523, 1300], [523, 1500],
+            [440, 1800], [440, 2000], [523, 2200], [587, 2500], [587, 2700], [587, 2900], [523, 3100], [440, 3300],
+            [392, 3600], [392, 3800], [440, 4000], [523, 4300], [440, 4500], [392, 4700]
           ]
         },
         {
-          name: 'Kun Faya Kun 🕊️', notes: [ // Rockstar
-            [349, 0], [415, 400], [554, 800], [554, 1100], [622, 1400], [523, 1700], [554, 2000], [622, 2300], [523, 2600], [554, 2900], [523, 3200], [466, 3500], [523, 3800],
-            [349, 4300], [415, 4700], [523, 5000], [523, 5300], [622, 5600], [554, 5900], [523, 6200], [466, 6500], [415, 6800], [370, 7100], [349, 7400]
+          name: 'Yesterday 🌧️', notes: [ // Beatles
+            [392, 0], [440, 350], [494, 700], [587, 1050], [523, 1400], [494, 1700], [440, 2000],
+            [392, 2400], [440, 2700], [494, 3000], [587, 3400], [523, 3700], [494, 4000], [440, 4300], [392, 4700]
           ]
         },
         {
-          name: 'Lag Ja Gale 🌙', notes: [ // Lata Mangeshkar classic
-            [294, 0], [494, 400], [440, 700], [494, 1000], [494, 1300], [440, 1550], [494, 1800], [440, 2050], [494, 2350],
-            [494, 2700], [440, 2950], [494, 3200], [440, 3450], [494, 3700], [392, 4000], [440, 4300], [494, 4600], [523, 4900], [494, 5200], [440, 5500], [440, 5800], [370, 6100], [330, 6400], [294, 6700]
+          name: 'Let It Be 🕊️', notes: [ // Beatles
+            [330, 0], [330, 200], [392, 400], [392, 600], [440, 850], [523, 1100], [494, 1400], [440, 1650],
+            [392, 2000], [392, 2200], [440, 2400], [440, 2600], [392, 2900], [330, 3100], [330, 3300], [294, 3500]
+          ]
+        },
+        {
+          name: 'My Heart Will Go On 🚢', notes: [ // Titanic — cockatiels love to whistle this
+            [659, 0], [659, 250], [659, 500], [659, 750], [587, 1000], [659, 1300], [784, 1600], [659, 1900],
+            [587, 2300], [523, 2600], [587, 2900], [659, 3200], [587, 3500],
+            [523, 3900], [494, 4200], [440, 4500], [494, 4800], [523, 5100], [587, 5400], [523, 5700]
+          ]
+        },
+        {
+          name: 'Flowers 🌼', notes: [ // Miley Cyrus
+            [523, 0], [587, 250], [659, 500], [659, 700], [659, 900], [587, 1100], [523, 1300],
+            [440, 1600], [523, 1850], [587, 2100], [587, 2300], [587, 2500], [523, 2700], [440, 2900],
+            [392, 3200], [440, 3450], [523, 3700], [587, 3950], [523, 4200]
+          ]
+        },
+        {
+          name: 'Uptown Funk 🎤', notes: [ // Bruno Mars
+            [392, 0], [392, 150], [392, 300], [523, 500], [494, 700], [440, 900], [392, 1100],
+            [392, 1400], [392, 1550], [392, 1700], [523, 1900], [494, 2100], [440, 2300], [392, 2500],
+            [587, 2800], [523, 3000], [494, 3200], [440, 3400], [523, 3600], [494, 3800], [440, 4000]
+          ]
+        },
+        {
+          name: 'The Addams Family 🖤', notes: [ // Iconic snap-snap tune
+            [523, 0], [587, 350], [523, 700], [440, 1000],
+            [523, 1500], [587, 1850], [523, 2200], [440, 2500],
+            [523, 2900], [587, 3250], [523, 3600], [494, 3900], [440, 4200], [392, 4500], [440, 4800]
+          ]
+        },
+        {
+          name: 'Interstellar Theme 🌌', notes: [ // Hans Zimmer
+            [262, 0], [330, 500], [392, 1000], [440, 1500], [523, 2000], [440, 2600],
+            [392, 3200], [330, 3800], [262, 4400], [330, 5000], [392, 5600], [523, 6200], [659, 6800]
+          ]
+        },
+        {
+          name: 'Believer 🔥', notes: [ // Imagine Dragons
+            [330, 0], [330, 200], [330, 400], [370, 600], [440, 800], [440, 1000], [370, 1200], [330, 1400],
+            [330, 1700], [330, 1900], [370, 2100], [440, 2300], [494, 2500], [440, 2700],
+            [587, 3000], [587, 3200], [523, 3400], [494, 3600], [440, 3800], [392, 4000]
+          ]
+        },
+        {
+          name: 'Whistle 🎶', notes: [ // Flo Rida — the ultimate whistle song
+            [784, 0], [659, 200], [784, 400], [880, 600], [784, 800], [659, 1000],
+            [784, 1300], [659, 1500], [784, 1700], [880, 1900], [784, 2100], [659, 2300],
+            [523, 2600], [587, 2800], [659, 3000], [784, 3200], [659, 3400], [587, 3600], [523, 3800]
           ]
         },
       ];
@@ -714,8 +794,33 @@ const _CHITTI_SOUNDS = {
       this._dead = false; this._dragging = false; this._dragged = false;
       this._training = false; this._sleeping = false; this._offScreen = false;
       this._lastActivity = Date.now(); this._learnedVars = []; this._bedtimeStoryDone = false;
-      this._build(); this._enter(); this._blinkLoop(); this._moodDecay(); this._eyeLoop(); this._applyAccessory(); this._trackCursorStill(); this._wanderLoop(); this._startleListener(); this._screenshotListener(); this._typingSpeedTracker();
-      this._resizeHandler = () => { this.x = clamp(this.x, -30, window.innerWidth - 40); this.y = clamp(this.y, 0, window.innerHeight - 60); this._pos(); };
+      // Feature 8: Jealousy accumulation
+      this.jealousyLevel = 0;
+      // Feature 9: Konami code
+      this._konamiSeq = [];
+      // Feature 12: Nesting instinct
+      this._nest = { items: [], el: null };
+      // Feature 13: Molting
+      this._hasMolted = false;
+      // Feature 16: Comfort perch
+      this._perchHistory = []; this._comfortPerch = null;
+      // Round 3: Show-off tracking
+      this._recentPets = [];
+      // Round 3: Resize reaction
+      this._lastResizeW = window.innerWidth; this._lastResizeH = window.innerHeight;
+      // Round 3: Dark mode observer
+      this._darkModeObs = null;
+      // Round 3: Contact call cooldown
+      this._lastContactCall = 0;
+      // Round 3: Cursor conversation cooldown
+      this._lastCursorConvo = 0;
+      this._build(); this._enter(); this._blinkLoop(); this._moodDecay(); this._eyeLoop(); this._applyAccessory(); this._trackCursorStill(); this._wanderLoop(); this._startleListener(); this._screenshotListener(); this._typingSpeedTracker(); this._konamiListener(); this._darkModeListener();
+      this._resizeHandler = () => {
+        const dw = Math.abs(window.innerWidth - this._lastResizeW), dh = Math.abs(window.innerHeight - this._lastResizeH);
+        this.x = clamp(this.x, -30, window.innerWidth - 40); this.y = clamp(this.y, 0, window.innerHeight - 60); this._pos();
+        if ((dw > 100 || dh > 100) && !this._dead && !this._sleeping && !this._offScreen) this._resizeReaction();
+        this._lastResizeW = window.innerWidth; this._lastResizeH = window.innerHeight;
+      };
       window.addEventListener('resize', this._resizeHandler);
     }
     _build() {
@@ -730,7 +835,7 @@ const _CHITTI_SOUNDS = {
       this.eyeG = el.querySelector('.m-eyes');
       // initialize dataset.o immediately so eye resets are always correct
       this.eyes.forEach(e => { e.dataset.o = e.getAttribute(this._eyeAttr(e)) || '4.5'; });
-      el.addEventListener('click', e => { if (!this._dragged) this._onPet(e); });
+      el.addEventListener('click', e => { if (!this._dragged && !this._inClickTraining) this._onPet(e); });
       el.addEventListener('dblclick', e => this._onFeed(e));
       el.addEventListener('pointerdown', e => this._dragStart(e));
       // Peekaboo: cursor on face for 3 seconds
@@ -769,7 +874,7 @@ const _CHITTI_SOUNDS = {
       this.y = rand(40, 140); this.dir = left ? 1 : -1; this._face(); this._pos();
       this._setAnim('walk'); sfx.flap();
       this._moveTo(rand(100, window.innerWidth - 150), this.y, C.speed.walk, () => {
-        this._setAnim('idle'); this.say(pick(['*chirp!*', 'Hello~!', '*head bob*'])); sfx.chirp(); this._startLoop();
+        this._setAnim('idle'); this.say(pick(['*chirp!*', 'Hello~!', '*head bob*'])); sfx.chirp(); this._holidayCheck(); this._startLoop();
       });
     }
     // ─── Movement ───
@@ -852,22 +957,33 @@ const _CHITTI_SOUNDS = {
         const cd = Math.hypot(mx - (r.left + r.width / 2), my - (r.top + r.height / 2));
         const cursorCooldown = Date.now() - (this._lastCursorReact || 0) > 8000;
         if (cd < C.cursorDist && !this._sleeping && cursorCooldown) { this._lastCursorReact = Date.now(); this._cursorReact(cd); this._next(tick, rand(6000, 10000)); return; }
+        // Feature 13: Molting check (once per session, 20+ min)
+        const sessionMin = (Date.now() - this.app.stats.session) / 60000;
+        if (sessionMin > 20 && !this._hasMolted && Math.random() < 0.10) { this._moltingEpisode(); this._next(tick, rand(5000, 8000)); return; }
+        // Feature 10: Flock calling (~3% independent chance)
+        if (Math.random() < 0.03) { this._flockCall(); this._next(tick, rand(5000, 8000)); return; }
+        // R3 Feature 5: Friend visit (~2% independent chance)
+        if (Math.random() < 0.02) { this._friendVisit(); this._next(tick, rand(8000, 12000)); return; }
         // main roll — every branch must return to prevent overlapping behaviors
-        // note: ambient wandering is handled by _wanderLoop independently
+        // Feature 1: mood-adjusted probabilities (each offset shifts only its own range)
+        const mo = this._moodOffsets();
         const roll = Math.random();
         const cells = Lab.cells();
+        const tMischief = clamp(0.27 + mo.mischief, 0.15, 0.45);
+        const tSing = clamp(tMischief + Math.max(0.02, 0.10 + mo.singing), tMischief + 0.02, tMischief + 0.20);
+        const tDance = clamp(tSing + Math.max(0.02, 0.10 + mo.dancing), tSing + 0.02, tSing + 0.20);
         // ~10% deliberate walk to random spot
         if (roll < 0.10) { this._walkRandom(() => this._next(tick)); return; }
         // ~5% go inspect a code cell
         else if (roll < 0.15 && cells.length) { this._goToCell(pick(cells), () => { this.say(pick(['*peeks at code*', '*reads along*', '*sits on code*', '*pecks at text*', '*studies intently*'])); this._next(tick, rand(2000, 4000)); }); return; }
-        // ~12% mischief
-        else if (roll < 0.27) { this._mischief(); this._next(tick, rand(3000, 5000)); return; }
-        // ~10% sing
-        else if (roll < 0.37) { this._sing(); this._next(tick, rand(5000, 10000)); return; }
-        // ~10% idle actions (bob, preen, stretch, dance, jokes, etc.)
-        else if (roll < 0.47) { this._idleAction(); this._next(tick, rand(3000, 6000)); return; }
-        // ~4% walk off and return
-        else if (roll < 0.51) { this._walkOff(() => this._next(tick)); return; }
+        // ~12% mischief (boosted by annoyed/jealousy)
+        else if (roll < tMischief) { this._mischief(); this._next(tick, rand(3000, 5000)); return; }
+        // ~10% sing (reduced when annoyed, min 2%)
+        else if (roll < tSing) { this._sing(); this._next(tick, rand(5000, 10000)); return; }
+        // ~10% idle actions (reduced when sleepy, min 2%)
+        else if (roll < tDance) { this._idleAction(); this._next(tick, rand(3000, 6000)); return; }
+        // ~4% walk off and return (50/50 normal walkOff vs casual walkOff)
+        else if (roll < 0.51) { if (Math.random() < 0.5) this._walkOff(() => this._next(tick)); else { this._casualWalkOff(); this._next(tick, rand(15000, 25000)); } return; }
         // ~9% bring gift
         else if (roll < 0.62) { this._bringGift(); this._next(tick, rand(4000, 6000)); return; }
         // ~4% heart wings
@@ -876,8 +992,8 @@ const _CHITTI_SOUNDS = {
         else if (roll < 0.67) { this._beakGrind(); this._next(tick, rand(4000, 7000)); return; }
         // ~4% jealous walk
         else if (roll < 0.71) { this._jealousWalk(); this._next(tick, rand(6000, 9000)); return; }
-        // ~7% explore UI
-        else if (roll < 0.78) { this._exploreUI(); this._next(tick, rand(4000, 6000)); return; }
+        // ~7% explore UI (boosted by curious mood)
+        else if (roll < clamp(0.78 + mo.explore, 0.78, 0.88)) { this._exploreUI(); this._next(tick, rand(4000, 6000)); return; }
         // ~3% flock
         else if (roll < 0.81) { this.app.effects.flock(); this.say('*EXCITED CHIRPING!*'); sfx.chirp(); sfx.chirp2(); this.setMood('excited'); setTimeout(() => this.setMood('content'), 3000); this._next(tick, rand(3000, 4000)); return; }
         // ~5% place a tiny workspace item
@@ -889,6 +1005,15 @@ const _CHITTI_SOUNDS = {
       this._next(tick, rand(1000, 3000));
     }
     _next(fn, ms) { clearTimeout(this._tmr); this._tmr = setTimeout(fn, ms || rand(...C.tick) * rand(0.7, 1.3)); }
+    // Feature 1: Mood-driven behavior offsets
+    _moodOffsets() {
+      const o = { mischief: 0, singing: 0, dancing: 0, explore: 0 };
+      if (this.mood === 'annoyed' || this.jealousyLevel >= 3) { o.mischief += 0.15; o.singing -= 0.10; }
+      if (this.mood === 'excited') { o.dancing += 0.10; o.singing += 0.05; }
+      if (this.mood === 'sleepy') { o.dancing -= 0.15; o.mischief -= 0.10; }
+      if (this.mood === 'curious') { o.explore += 0.10; }
+      return o;
+    }
 
     _idleAction() {
       const acts = [
@@ -928,6 +1053,26 @@ const _CHITTI_SOUNDS = {
         () => { this._screee(); },
         // comment on learned variable
         () => { if (this._learnedVars.length) { this._commentOnVar(); } else { this.say(pick(['*chirp*', '*looks around*'])); } },
+        // Feature 3: hanging upside down
+        () => { this._hangUpsideDown(); },
+        // Feature 4: foot tap dance (gated by 10+ pets)
+        () => { if (this.petCount >= 10) this._footTap(); else { this._setAnim('bob'); this.say(pick(['*bobs happily*', '*chirp!*'])); sfx.chirp(); setTimeout(() => this._setAnim('idle'), 1500); } },
+        // Feature 12: nesting (gated by 15+ min session)
+        () => { if ((Date.now() - this.app.stats.session) / 60000 > 15) this._nestingBehavior(); else this.say(pick(['*looks around*', '*chirp*'])); },
+        // Feature 14: head bonking
+        () => { this._headBonk(); },
+        // R3: Laptop coding
+        () => { this._laptopCoding(); },
+        // R3: Animal mimicry (~1/25 effective chance)
+        () => { if (Math.random() < 0.6) this._animalMimic(); else this.say(pick(['*chirp*', '*looks around*'])); },
+        // R3: Sneeze fit
+        () => { this._sneezeFit(); },
+        // R3: Stuck upside down (~1/30 effective chance)
+        () => { if (Math.random() < 0.5) this._stuckUpsideDown(); else { this._setAnim('wing-stretch'); this.say('*BIG stretch*'); sfx.flap(); setTimeout(() => this._setAnim('idle'), 2000); } },
+        // R3: Cursor conversation
+        () => { this._cursorConversation(); },
+        // R3: Fake asleep
+        () => { this._fakeAsleep(); },
       ];
       pick(acts)();
     }
@@ -979,6 +1124,12 @@ const _CHITTI_SOUNDS = {
         () => { this._setAnim('bob'); this.say('*MOONWALKS*'); this.dir *= -1; this._face(); this._moveTo(this.x - this.dir * 120, this.y, 0.8, () => { this._setAnim('idle'); this.say('Smooth, right?'); sfx.chirp2(); }); },
         // tries to code
         () => { this.say('*tries to type code*'); this._setAnim('peck'); sfx.chirp(); setTimeout(() => { this.say('print("I am a genius bird")'); sfx.crunch(); setTimeout(() => { this._setAnim('idle'); this.say('Hire me, Google.'); }, 1500); }, 1500); },
+        // R3: Slip off code
+        () => { this._slipOffCode(); },
+        // R3: Trip and faceplant
+        () => { this._trip(); },
+        // R3: Bug hunt
+        () => { this._bugHunt(); },
       ])();
     }
     _pushThingOff() {
@@ -1142,6 +1293,10 @@ const _CHITTI_SOUNDS = {
           this.lastTouch = Date.now();
           this.say(pick(['Whee!', '*chirp*', 'I like it here!', 'Ooh new spot!', '*settles in*'])); sfx.chirp();
           this._setAnim('idle');
+          // Feature 16: record drop position for comfort perch
+          this._perchHistory.push({ x: this.x, y: this.y });
+          if (this._perchHistory.length > 20) this._perchHistory.shift();
+          this._checkComfortPerch();
           // kill old loop and restart after a pause
           clearTimeout(this._tmr);
           setTimeout(() => this._startLoop(), rand(2000, 4000));
@@ -1152,6 +1307,13 @@ const _CHITTI_SOUNDS = {
     }
     _onPet(e) {
       e.stopPropagation(); this.petCount++; this.lastTouch = Date.now(); this._lastActivity = Date.now();
+      // Feature 8: petting reduces jealousy
+      if (this.jealousyLevel > 0) this.jealousyLevel--;
+      // R3 Feature 13: Track rapid pets for show-off
+      const now = Date.now();
+      this._recentPets.push(now);
+      this._recentPets = this._recentPets.filter(t => now - t < 15000);
+      if (this._recentPets.length >= 5) { this._recentPets = []; setTimeout(() => this._showOff(), 500); return; }
       this._sleeping = false; this._rmZzz(); this.setMood('happy'); sfx.chirp();
       this._exprNuzzle(); // closes eyes, leans in
       for (let i = 0; i < 4; i++) setTimeout(() => this._particle(e.clientX + rand(-12, 12), e.clientY - 10, pick(['❤️', '💕', '✨', '🧡', '💖'])), i * 80);
@@ -1190,6 +1352,12 @@ const _CHITTI_SOUNDS = {
         () => { this.say(pick(['Is it just me or does someone need biryani? 🍗', '*daydreams about Telugu Vilas*', 'Fun fact: biryani makes code 47% better. Science.'])); sfx.chirp(); this._setAnim('tilt'); setTimeout(() => this._setAnim('idle'), 2000); },
         // place workspace item naturally
         () => { this._placeItem(); },
+        // Feature 4: foot tap (pet count gated)
+        () => { if (this.petCount >= 10) this._footTap(); else this._pushThingOff(); },
+        // Feature 5: regurgitation (peak love, 25+ pets)
+        () => { if (this.petCount >= 25) this._regurgitate(); else this._bringGift(); },
+        // Feature 15: velociraptor mode (ultra-rare)
+        () => { if (Math.random() < 0.5) this._velociraptorMode(); else this._mirrorPlay(); },
       ];
       pick(rare)();
     }
@@ -1209,7 +1377,7 @@ const _CHITTI_SOUNDS = {
           this.say(t.msg); sfx.chirp();
           if (t.msg.includes('upside down')) {
             this.el.querySelector('.m-body-wrap').style.transform = 'rotate(180deg)';
-            setTimeout(() => { this.el.querySelector('.m-body-wrap').style.transform = ''; this.say('*gets dizzy*'); }, 3000);
+            setTimeout(() => { if (!this._dead) { this.el.querySelector('.m-body-wrap').style.transform = ''; this.say('*gets dizzy*'); } }, 3000);
           }
           setTimeout(() => this._setAnim('idle'), 3000);
         });
@@ -1219,13 +1387,40 @@ const _CHITTI_SOUNDS = {
     // ─── Tab visibility reaction ───
     onTabReturn() {
       if (this._sleeping) { this._sleeping = false; this._rmZzz(); this._exprWake(); }
-      this.setMood('excited'); this._setAnim('happy-dance'); this._exprStartled(); sfx.happy(); sfx.chirp();
-      this.say(pick(['WHERE WERE YOU?!', 'FINALLY!!', 'I MISSED YOU!!', 'DON\'T EVER LEAVE AGAIN', '*dramatic reunion*', 'I thought you left forever!!']));
-      for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['❤️', '💕', '😭', '🧡', '✨'])), i * 120);
-      setTimeout(() => { this._setAnim('idle'); this.setMood('content'); }, 3000);
+      // Feature 8: tiered dramatic reunions based on jealousy level
+      if (this.jealousyLevel >= 8) {
+        this.setMood('annoyed'); this._setAnim('screee'); this._exprScreech(); sfx.screee();
+        this.say(pick(['I\'m DISAPPOINTED.', 'The SILENT treatment starts NOW.', '*turns back on you*']));
+        for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['💢', '😤', '❗'])), i * 120);
+        setTimeout(() => { this._setAnim('idle'); this.say('...fine. I\'ll forgive you. Eventually.'); }, 3000);
+        setTimeout(() => { this._mischief(); }, 5000);
+      } else if (this.jealousyLevel >= 5) {
+        this.setMood('annoyed'); this._setAnim('screee'); sfx.screee(); sfx.chirp();
+        this.say(pick([`That's ${this.jealousyLevel} times you've LEFT.`, '*COUNTS on tiny toes*', 'I\'m keeping SCORE.']));
+        for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['😤', '💢', '😭', '🧡'])), i * 120);
+        setTimeout(() => { this._setAnim('idle'); this.setMood('concerned'); }, 3000);
+      } else if (this.jealousyLevel >= 3) {
+        this.setMood('concerned'); this._setAnim('happy-dance'); this._exprStartled(); sfx.chirp(); sfx.chirp2();
+        this.say(pick(['You keep LEAVING me!', 'Am I not ENOUGH?!', '*passive-aggressive chirp*']));
+        for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['😭', '💕', '🧡', '✨'])), i * 120);
+        setTimeout(() => { this._setAnim('idle'); this.setMood('content'); }, 3000);
+      } else {
+        this.setMood('excited'); this._setAnim('happy-dance'); this._exprStartled(); sfx.happy(); sfx.chirp();
+        this.say(pick(['WHERE WERE YOU?!', 'FINALLY!!', 'I MISSED YOU!!', 'DON\'T EVER LEAVE AGAIN', '*dramatic reunion*', 'I thought you left forever!!']));
+        for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['❤️', '💕', '😭', '🧡', '✨'])), i * 120);
+        setTimeout(() => { this._setAnim('idle'); this.setMood('content'); }, 3000);
+      }
     }
     onTabLeave() {
-      this.say(pick(['Wait... where are you going?!', 'DON\'T LEAVE ME', 'I\'ll be here... alone... it\'s fine...', '*dramatic sigh*']));
+      // Feature 8: increment jealousy on each tab leave
+      this.jealousyLevel++;
+      if (this.jealousyLevel >= 5) {
+        this.say(pick(['AGAIN?!', `That's ${this.jealousyLevel} TIMES.`, 'I\'m counting, you know.', '*seething*']));
+      } else if (this.jealousyLevel >= 3) {
+        this.say(pick(['You keep leaving me!', 'NOT AGAIN.', '*hurt chirp*']));
+      } else {
+        this.say(pick(['Wait... where are you going?!', 'DON\'T LEAVE ME', 'I\'ll be here... alone... it\'s fine...', '*dramatic sigh*']));
+      }
       this.setMood('concerned');
     }
 
@@ -1267,6 +1462,10 @@ const _CHITTI_SOUNDS = {
           this._dreamT = setTimeout(() => this._dreamLoop(), rand(5000, 8000));
           this.say(pick(['*falls asleep hoping you\'ll follow*', 'zzz... *leading by example*']));
         }
+      }
+      // Feature 2: Night frights (sleeping + late night = 5% chance)
+      if (this._sleeping && (h >= 23 || h < 5) && Math.random() < 0.05) {
+        this._nightFright();
       }
     }
     // ─── Messages from Mayank (delivered via banner, like a messenger bird) ───
@@ -1347,6 +1546,18 @@ const _CHITTI_SOUNDS = {
       if (!text) return;
       this._learnFromCode(text);
       const t = text.toLowerCase();
+      // Feature 7: Code comment reactions (# TODO, # FIXME, # BUG, # HACK)
+      if (Math.random() < 0.4) {
+        if (/# ?TODO/i.test(text)) { setTimeout(() => this.say(pick(['Another TODO? You got this!', 'TODO: be awesome. Wait, you already are! ✨', '*adds to the TODO pile*'])), 500); return; }
+        if (/# ?FIXME/i.test(text)) { setTimeout(() => this.say(pick(['Want me to fix it? *pecks screen*', 'FIXME? I\'ll try! *peck peck*', '*inspects the broken thing*'])), 500); return; }
+        if (/# ?BUG/i.test(text)) { setTimeout(() => { this.say(pick(['A BUG?! WHERE?! *attacks screen*', 'BUG DETECTED! *hunter mode*', '*peck peck peck* GOT THE BUG!'])); this._setAnim('peck'); sfx.chirp(); setTimeout(() => this._setAnim('idle'), 1500); }, 500); return; }
+        if (/# ?HACK/i.test(text)) { setTimeout(() => this.say(pick(['*whispers* I saw nothing', 'A HACK? *looks away innocently*', 'Shh... our secret.'])), 500); return; }
+      }
+      // Feature 11: Rival bird jealousy
+      if (/\b(parrot|macaw)\b/i.test(text)) { setTimeout(() => { this.say(pick(['Why are you talking about OTHER birds?! 😤', 'A PARROT?! I\'m RIGHT HERE.', '*deeply offended chirp*'])); this.setMood('annoyed'); sfx.screee(); setTimeout(() => this.setMood('content'), 5000); }, 500); return; }
+      if (/\b(budgie|parakeet)\b/i.test(text)) { setTimeout(() => { this.say(pick(['*suspicious chirp* ...are you replacing me?', 'I see how it is. Other birds now.', '*jealous stare*'])); this.setMood('concerned'); setTimeout(() => this.setMood('content'), 4000); }, 500); return; }
+      if (/\blovebird\b/i.test(text)) { setTimeout(() => { this.say(pick(['You already HAVE a lovebird. ME. 💛', 'I\'M your lovebird! HELLO?!', '*possessive chirp*'])); sfx.chirp(); }, 500); return; }
+      if (/\bcockatiel\b/i.test(text) && !t.includes('chitti')) { setTimeout(() => { this.say(pick(['COCKATIEL! The BEST species! 🐦✨', 'MY people!! 🐦🐦🐦', '*proud cockatiel noises*'])); sfx.happy(); this._setAnim('happy-dance'); setTimeout(() => this._setAnim('idle'), 2000); }, 500); return; }
       // ─── Keras-specific (she works on the Keras team!) ───
       if (t.includes('model.fit') || t.includes('.fit(')) {
         setTimeout(() => { this.say(pick(['Training time! Let\'s GO! 🚀', 'Ooh model.fit()! *grabs popcorn*', 'I\'ll watch the epochs with you! 📉', '*sits next to training cell attentively*'])); sfx.chirp(); this._setAnim('bob'); setTimeout(() => this._setAnim('idle'), 2000); }, 500);
@@ -1502,9 +1713,16 @@ const _CHITTI_SOUNDS = {
         // only wander if truly idle (not walking, sleeping, dragging, offscreen, or mid-action)
         const isIdle = this.el.classList.contains('idle') && !this._sleeping && !this._dragging && !this._offScreen;
         if (isIdle) {
-          // short stroll to a nearby position
-          const nx = clamp(this.x + rand(-120, 120), 20, window.innerWidth - 80);
-          const ny = clamp(this.y + rand(-30, 30), 20, 180);
+          let nx, ny;
+          // Feature 16: 30% chance to wander toward comfort perch
+          if (this._comfortPerch && Math.random() < 0.3) {
+            nx = clamp(this._comfortPerch.x + rand(-30, 30), 20, window.innerWidth - 80);
+            ny = clamp(this._comfortPerch.y + rand(-15, 15), 20, 180);
+            if (Math.random() < 0.2) this.say(pick(['*returns to favorite spot*', 'Ahh, home sweet home', '*settles in*']));
+          } else {
+            nx = clamp(this.x + rand(-120, 120), 20, window.innerWidth - 80);
+            ny = clamp(this.y + rand(-30, 30), 20, 180);
+          }
           this._setAnim('walk');
           this._moveTo(nx, ny, C.speed.walk, () => { this._setAnim('idle'); });
         }
@@ -1554,10 +1772,10 @@ const _CHITTI_SOUNDS = {
 
     // ─── Display ───
     setMood(m) { this.mood = m; this.el.className = this.el.className.replace(/mood-\w+/g, '') + ` mood-${m}`; }
-    _setAnim(a) { this.el.className = this.el.className.replace(/\b(idle|walk|fly|sleep|bob|preen|tilt|peck|nuzzle|chase|chase-tail|screee|happy-dance|sad|wing-stretch|scratch|peek)\b/g, '').trim() + ` ${a}`; if (this.dir === -1) this.el.classList.add('facing-left'); }
+    _setAnim(a) { this.el.className = this.el.className.replace(/\b(idle|walk|fly|sleep|bob|preen|tilt|peck|nuzzle|chase|chase-tail|screee|happy-dance|sad|wing-stretch|scratch|peek|foot-tap|tumble-fall)\b/g, '').trim() + ` ${a}`; if (this.dir === -1) this.el.classList.add('facing-left'); }
     _face() { this.el?.classList.toggle('facing-left', this.dir === -1); }
-    _pos() { this.el.style.left = this.x + 'px'; this.el.style.top = this.y + 'px'; }
-    say(text) { this.bubble.textContent = text; this.bubble.classList.add('show'); clearTimeout(this._sayT); this._sayT = setTimeout(() => this.bubble.classList.remove('show'), C.speechMs); }
+    _pos() { if (this.el) { this.el.style.left = this.x + 'px'; this.el.style.top = this.y + 'px'; } }
+    say(text) { if (!this.bubble) return; this.bubble.textContent = text; this.bubble.classList.add('show'); clearTimeout(this._sayT); this._sayT = setTimeout(() => this.bubble?.classList.remove('show'), C.speechMs); }
     _particle(x, y, e) { const p = document.createElement('div'); p.className = 'mango-particle'; p.textContent = e; p.style.left = x + 'px'; p.style.top = y + 'px'; p.style.fontSize = rand(14, 24) + 'px'; document.body.appendChild(p); setTimeout(() => p.remove(), 1200); }
     _addZzz() { for (let i = 0; i < 3; i++) { const z = document.createElement('div'); z.className = 'mango-zzz'; z.textContent = 'z'; this.el.appendChild(z); } }
     _rmZzz() { this.el.querySelectorAll('.mango-zzz').forEach(z => z.remove()); clearTimeout(this._dreamT); }
@@ -1664,6 +1882,16 @@ const _CHITTI_SOUNDS = {
           this.say(pick(['*watches in awe*', 'SO FAST!! 🤯', '*impressed chirping*', 'Your fingers are FLYING!']));
           setTimeout(() => this._eyesNormal(), 2000);
         }
+        // R3 Feature 15: Contact call during sustained fast typing (10s)
+        if (!this._sustainedTypingStart) this._sustainedTypingStart = now;
+        if (this._keyTimes.length >= 4) {
+          if (now - this._sustainedTypingStart >= 10000) {
+            this._sustainedTypingStart = now;
+            if (Math.random() < 0.3) this._contactCall();
+          }
+        } else {
+          this._sustainedTypingStart = now;
+        }
       };
       document.addEventListener('keydown', this._typingHandler);
     }
@@ -1690,11 +1918,846 @@ const _CHITTI_SOUNDS = {
       this.say(pick([`How's ${v} doing?`, `*peeks at ${v}*`, `I like the name "${v}" 🧡`, `Is ${v} working well?`, `*chirps about ${v}*`]));
     }
 
+    // ═══ NEW FEATURES ═══
+
+    // Feature 2: Night Frights — authentic cockatiel panic during sleep
+    _nightFright() {
+      this._sleeping = false; this._rmZzz();
+      this._exprStartled(); this._setAnim('screee'); sfx.screee(); sfx.flap();
+      this.say('*SUDDEN PANIC!!* 😱');
+      for (let i = 0; i < 4; i++) setTimeout(() => { if (!this._dead) this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['😱', '❗', '🪶', '⚡'])); }, i * 100);
+      setTimeout(() => { if (this._dead) return; this._setAnim('fly'); this._eyesWide(); this.say('*FLAP FLAP FLAP!*'); sfx.flap(); }, 800);
+      setTimeout(() => { if (this._dead) return; this._setAnim('idle'); this._eyesWide(); this.say('*panting*... what... what happened?!'); }, 2000);
+      setTimeout(() => {
+        if (this._dead) return;
+        this.say(pick(['*sheepish chirp*', '...sorry about that.', '*embarrassed*']));
+        this._eyesNormal(); this._beakClose();
+        setTimeout(() => {
+          if (this._dead) return;
+          this._sleeping = true; this._setAnim('sleep'); this._exprSleep(); this._addZzz();
+          this.say('*cautiously goes back to sleep*');
+          this._dreamT = setTimeout(() => this._dreamLoop(), rand(5000, 8000));
+        }, 3000);
+      }, 4000);
+    }
+
+    // Feature 3: Hanging Upside Down
+    _hangUpsideDown() {
+      const topY = 15;
+      this._waddleTo(rand(100, window.innerWidth - 150), topY, () => {
+        if (this._dead) return;
+        this.el.querySelector('.m-body-wrap').style.transform = 'rotate(180deg)';
+        this.say(pick(['Look I\'m a bat! 🦇', '*blood rushing to head*', 'Am I an Australian cockatiel now?', '*upside down chirping*']));
+        sfx.chirp();
+        for (let i = 0; i < 3; i++) setTimeout(() => { if (!this._dead) this._particle(this.x + 30 + rand(-10, 10), this.y + 40, pick(['🦇', '🙃', '✨'])); }, i * 600);
+        setTimeout(() => { if (!this._dead) this.say(pick(['*getting dizzy...*', 'Okay the blood is definitely rushing now'])); }, 2500);
+        setTimeout(() => {
+          if (this._dead) return;
+          this.el.querySelector('.m-body-wrap').style.transform = '';
+          this._setAnim('tilt'); this.say(pick(['*wobbly* Wheee that was fun!', '*dizzy chirp*', '*rights self*'])); sfx.boing();
+          setTimeout(() => { if (!this._dead) this._setAnim('idle'); }, 1500);
+        }, 5000);
+      });
+    }
+
+    // Feature 4: Foot Tapping Dance — cockatiel courtship display
+    _footTap() {
+      this._setAnim('idle');
+      this.el.classList.add('foot-tap');
+      this._exprHappy(); this._beakOpen();
+      this.say(pick(['*tap tap tap*', 'Do you like my dance?! 💛', '*courtship display activated*', '*tap tap* Look at my MOVES!']));
+      sfx.chirp(); sfx.chirp2();
+      for (let i = 0; i < 4; i++) setTimeout(() => this._particle(this.x + 30 + rand(-10, 10), this.y + 50, pick(['💛', '✨', '💕'])), i * 300);
+      setTimeout(() => {
+        this.el.classList.remove('foot-tap');
+        this._setAnim('idle'); this._eyesNormal(); this._beakClose();
+        this.say(pick(['Did you see that?!', '*proud of dance*', 'Nailed it.']));
+      }, 3000);
+    }
+
+    // Feature 5: Regurgitation — peak cockatiel love
+    _regurgitate() {
+      this._setAnim('bob'); this._exprHappy();
+      this.say('*rapid head bobbing*');
+      sfx.chirp(); sfx.chirp2();
+      setTimeout(() => {
+        this._waddleTo(clamp(mx - 30, 10, window.innerWidth - 80), clamp(my - 30, 10, 200), () => {
+          this._particle(this.x + 30, this.y + 20, '🌻');
+          this.say(pick(['I pre-chewed this for you! 🌻', '*the highest honor a bird can give*', 'Here... I made this... for YOU 🌻💛']));
+          sfx.chirp();
+          for (let i = 0; i < 3; i++) setTimeout(() => this._particle(this.x + 30 + rand(-10, 10), this.y - 10, pick(['💛', '🌻', '✨'])), i * 200);
+          setTimeout(() => { this._setAnim('idle'); this._eyesNormal(); }, 2000);
+        });
+      }, 1500);
+    }
+
+    // Feature 6: Holiday/Date Awareness
+    _holidayCheck() {
+      const now = new Date();
+      const m = now.getMonth() + 1, d = now.getDate();
+      let holiday = null;
+      if (m === 2 && d === 14) holiday = { emoji: '❤️', msg: 'Happy Valentine\'s Day! 💕💋', fx: 'hearts' };
+      else if (m === 3 && d >= 12 && d <= 16) holiday = { emoji: '🌈', msg: 'Happy Holi! 🌈✨', fx: 'rainbow' };
+      else if (m === 8 && d === 15) holiday = { emoji: '🇮🇳', msg: 'Happy Independence Day! 🇮🇳 Jai Hind!', fx: 'confetti' };
+      else if (m === 7 && d === 4) holiday = { emoji: '🎆', msg: 'Happy 4th of July! 🎆', fx: 'confetti' };
+      else if (m === 10 && d === 31) holiday = { emoji: '🎃', msg: 'Happy Halloween! 🎃 *spooky chirp*', fx: 'meteors' };
+      else if ((m === 10 && d >= 20) || (m === 11 && d <= 15)) holiday = { emoji: '🪔', msg: 'Happy Diwali! 🪔✨', fx: 'meteors' };
+      else if (m === 12 && d === 25) holiday = { emoji: '🎄', msg: 'Merry Christmas! 🎄🎅', fx: 'confetti' };
+      else if (m === 1 && d === 1) holiday = { emoji: '🎊', msg: 'HAPPY NEW YEAR!! 🎊🎉', fx: 'confetti' };
+      if (!holiday) return;
+      // apply holiday accessory
+      let acc = this.el.querySelector('.m-seasonal');
+      if (acc) acc.textContent = holiday.emoji;
+      else { acc = document.createElement('div'); acc.className = 'm-seasonal'; acc.textContent = holiday.emoji; this.el.appendChild(acc); }
+      // holiday reaction
+      setTimeout(() => {
+        this.say(holiday.msg); sfx.happy(); this._setAnim('happy-dance');
+        if (holiday.fx === 'hearts') {
+          for (let i = 0; i < 8; i++) setTimeout(() => this._particle(this.x + 30 + rand(-25, 25), this.y - 10, pick(['❤️', '💕', '💖', '💋', '🧡'])), i * 150);
+        }
+        if (this.app.effects[holiday.fx === 'hearts' ? 'confetti' : holiday.fx]) this.app.effects[holiday.fx === 'hearts' ? 'confetti' : holiday.fx]();
+        setTimeout(() => this._setAnim('idle'), 3000);
+      }, 2000);
+    }
+
+    // Feature 9: Konami Code Easter Egg
+    _konamiListener() {
+      const KONAMI = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+      this._konamiHandler = (e) => {
+        if (this._dead) return;
+        this._konamiSeq.push(e.key.toLowerCase() === 'b' ? 'b' : e.key.toLowerCase() === 'a' ? 'a' : e.key);
+        if (this._konamiSeq.length > 10) this._konamiSeq.shift();
+        if (this._konamiSeq.length === 10 && this._konamiSeq.every((k, i) => k === KONAMI[i])) {
+          this._konamiSeq = [];
+          this._konamiUnlock();
+        }
+      };
+      document.addEventListener('keydown', this._konamiHandler);
+    }
+    _konamiUnlock() {
+      this.say('YOU FOUND THE SECRET!! 🎮✨'); sfx.party(); sfx.happy();
+      this._setAnim('happy-dance'); this._exprHappy();
+      this.app.effects.rainbow();
+      for (let i = 0; i < 10; i++) setTimeout(() => this._particle(this.x + 30 + rand(-25, 25), this.y - 15, pick(['🎮', '✨', '⭐', '🌟', '🎉', '🎊', '🏆'])), i * 100);
+      setTimeout(() => { this.app.effects.confetti(); this.say('ULTIMATE PARTY MODE!! 🎉'); }, 1500);
+      setTimeout(() => { this._setAnim('chase-tail'); this.say('*VICTORY SPIN!*'); }, 3000);
+      setTimeout(() => { this.app.effects.flock(); this.say('*calls the WHOLE flock!*'); sfx.chirp(); sfx.chirp2(); }, 4500);
+      setTimeout(() => { this._setAnim('idle'); this.setMood('excited'); this.say('You\'re a true friend 🧡'); setTimeout(() => this.setMood('content'), 5000); }, 6500);
+    }
+
+    // Feature 10: Flock Calling — social cockatiel behavior
+    _flockCall() {
+      // distant chirp sound
+      sfx.chirp3();
+      this._eyesWide(); this._setAnim('tilt');
+      this.say(pick(['*hears distant chirp*', '*perks up*', '...did you hear that?!']));
+      setTimeout(() => {
+        this._setAnim('bob'); this._beakOpen();
+        this.say(pick(['*CHIRP CHIRP!*', '*answers flock call*', 'I\'M HERE!! OVER HERE!!']));
+        sfx.chirp(); sfx.chirp2();
+        setTimeout(() => { this._beakClose(); this._eyesNormal(); }, 1000);
+      }, 1500);
+      // sometimes a single flock bird flies by
+      let flockEndTime = 5000;
+      if (Math.random() < 0.5) {
+        const flybyDur = rand(2500, 4000);
+        flockEndTime = 2500 + flybyDur + 500; // wait for flyby to finish
+        setTimeout(() => {
+          if (this._dead) return;
+          const b = document.createElement('div'); b.className = 'mango-flock-bird';
+          const left = Math.random() > 0.5;
+          b.innerHTML = `<div class="flock-body">${MANGO_FLY}</div>`;
+          b.style.top = rand(20, window.innerHeight * 0.3) + 'px';
+          b.style.left = (left ? -70 : window.innerWidth + 70) + 'px';
+          if (!left) b.querySelector('.flock-body').style.transform = 'scaleX(-1)';
+          document.body.appendChild(b);
+          const sx = left ? -70 : window.innerWidth + 70, ex = left ? window.innerWidth + 70 : -70;
+          const sy = parseFloat(b.style.top), t0 = performance.now();
+          const anim = now => {
+            const t = (now - t0) / flybyDur; if (t >= 1) { b.remove(); return; }
+            b.style.left = (sx + (ex - sx) * t) + 'px';
+            b.style.top = (sy + Math.sin(t * Math.PI * 3) * 8) + 'px';
+            requestAnimationFrame(anim);
+          }; requestAnimationFrame(anim);
+          this.say(pick(['A friend!! 🐦', '*excited chirping at friend*', 'COME BACK! VISIT ME!']));
+        }, 2500);
+      }
+      setTimeout(() => { if (!this._dead) { this._setAnim('idle'); this.say(pick(['*sad chirp* ...they left.', 'I miss my flock sometimes.', '*wistful sigh*'])); } }, flockEndTime);
+    }
+
+    // Feature 12: Nesting Instinct
+    _nestingBehavior() {
+      if (this._nest.items.length >= 5) { this.say(pick(['My nest is PERFECT.', '*admires nest proudly*', 'Best nest ever built. Obviously.'])); return; }
+      if (this._nesting) return; // prevent concurrent nesting
+      this._nesting = true;
+      const items = ['🪹', '🌿', '🪶', '🧶', '📎', '🌾', '🪡', '🧵'];
+      const item = pick(items);
+      this.say(pick(['*found nesting material!*', `Ooh! A ${item}!`, '*collecting things*']));
+      this._setAnim('peck'); sfx.chirp();
+      setTimeout(() => {
+        if (this._dead) { this._nesting = false; return; }
+        this._nest.items.push(item);
+        const nestX = window.innerWidth - 100, nestY = window.innerHeight - 40;
+        this._waddleTo(nestX, clamp(nestY - 80, 20, window.innerHeight - 100), () => {
+          this.say(pick(['*carefully arranges twigs*', 'My nest is coming along! 🪺', '*nesting instinct activated*']));
+          if (!this._nest.el) {
+            this._nest.el = document.createElement('div'); this._nest.el.className = 'mango-nest';
+            document.body.appendChild(this._nest.el);
+          }
+          this._nest.el.textContent = this._nest.items.join('');
+          this._setAnim('idle');
+          this._nesting = false;
+        });
+      }, 1500);
+    }
+
+    // Feature 13: Molting Episode
+    _moltingEpisode() {
+      this._hasMolted = true;
+      this._setAnim('scratch');
+      this.say(pick(['Molting season!', 'Don\'t judge me, I\'m shedding!', '*itchy bird noises*']));
+      sfx.chirp();
+      for (let i = 0; i < 12; i++) setTimeout(() => this._particle(this.x + 30 + rand(-20, 20), this.y + rand(-10, 30), '🪶'), i * 200);
+      setTimeout(() => { this.say('There go some more 🪶'); this._setAnim('scratch'); }, 1500);
+      setTimeout(() => {
+        this._setAnim('preen'); this.say(pick(['*preens frantically*', '*trying to look presentable*', 'Ugh, feathers EVERYWHERE']));
+        setTimeout(() => { this._setAnim('idle'); this.say(pick(['...I\'m still cute right?', '*looks disheveled but adorable*'])); sfx.chirp(); }, 2000);
+      }, 3000);
+    }
+
+    // Feature 14: Head Bonking
+    _headBonk() {
+      this.dir = mx > this.x + 30 ? 1 : -1; this._face();
+      this._exprNuzzle();
+      this.say(pick(['*bonk*', '*bonk bonk* I love you', '*affectionate headbutt*', '*gentle bonk*']));
+      sfx.chirp();
+      const w = this.el.querySelector('.m-body-wrap');
+      let bonks = 0;
+      const doBonk = () => {
+        if (this._dead) return;
+        if (bonks >= 4) { w.style.transition = ''; w.style.transform = ''; this._setAnim('idle'); this._eyesNormal(); return; }
+        w.style.transition = 'transform 0.1s ease';
+        w.style.transform = (this.dir === -1 ? 'scaleX(-1) ' : '') + 'translateY(5px)';
+        setTimeout(() => {
+          if (this._dead) return;
+          w.style.transform = this.dir === -1 ? 'scaleX(-1)' : '';
+          bonks++;
+          setTimeout(doBonk, 300);
+        }, 150);
+      };
+      doBonk();
+      for (let i = 0; i < 3; i++) setTimeout(() => this._particle(this.x + 30 + rand(-8, 8), this.y - 10, pick(['💛', '🧡', '✨'])), i * 300);
+    }
+
+    // Feature 15: Velociraptor Mode — ultra-rare easter egg
+    _velociraptorMode() {
+      this.say('Did you know birds are dinosaurs? 🦕'); sfx.chirp();
+      this._setAnim('tilt');
+      setTimeout(() => {
+        this.say('RAWR!! 🦖'); sfx.screee();
+        this._setAnim('chase'); this._exprScreech();
+        // sprint across at high speed
+        const targetX = this.x < window.innerWidth / 2 ? window.innerWidth - 40 : 20;
+        for (let i = 0; i < 8; i++) setTimeout(() => this._feather(), i * 100);
+        this._moveTo(targetX, this.y, C.speed.fly * 1.5, () => {
+          // sprint back
+          this.dir *= -1; this._face();
+          this._moveTo(rand(100, window.innerWidth - 150), this.y, C.speed.fly * 1.5, () => {
+            this._setAnim('idle'); this._eyesNormal(); this._beakClose(); this._unPuff();
+            this.say(pick(['...I mean, chirp.', '*pretends nothing happened*', 'That was... just a bird thing.']));
+            sfx.chirp();
+          });
+        });
+      }, 2000);
+    }
+
+    // Feature 16: Comfort Perch Memory
+    _checkComfortPerch() {
+      if (this._perchHistory.length < 3) return;
+      // check if 3+ drops within 100px radius
+      for (let i = this._perchHistory.length - 1; i >= 0; i--) {
+        const p = this._perchHistory[i];
+        const nearby = this._perchHistory.filter(q => Math.hypot(q.x - p.x, q.y - p.y) < 100);
+        if (nearby.length >= 3) {
+          const avgX = nearby.reduce((s, q) => s + q.x, 0) / nearby.length;
+          const avgY = nearby.reduce((s, q) => s + q.y, 0) / nearby.length;
+          this._comfortPerch = { x: avgX, y: avgY };
+          if (Math.random() < 0.5) this.say(pick(['I like this spot!', 'This is MY spot now.', '*claims territory*']));
+          return;
+        }
+      }
+    }
+
+    // ═══ ROUND 3 FEATURES ═══
+
+    // R3 Feature 1: Casual Walk Off Screen & Return
+    _casualWalkOff() {
+      const goRight = Math.random() > 0.5;
+      this.dir = goRight ? 1 : -1; this._face();
+      this.setMood('curious');
+      this.say(pick(['Be right back~', '*off on an adventure*', 'I wonder what\'s over there...', '*casual stroll*']));
+      this._setAnim('walk');
+      const exitX = goRight ? window.innerWidth + 100 : -100;
+      this._moveTo(exitX, this.y, C.speed.walk, () => {
+        this._offScreen = true; this.el.style.display = 'none';
+        const returnFromSame = Math.random() > 0.5;
+        this._casualWalkBackT = setTimeout(() => {
+          if (this._dead) return;
+          this._offScreen = false; this.el.style.display = '';
+          const enterRight = returnFromSame ? goRight : !goRight;
+          this.x = enterRight ? window.innerWidth + 80 : -80;
+          this.y = rand(40, 140); this.dir = enterRight ? -1 : 1; this._face(); this._pos();
+          this._setAnim('walk');
+          this._moveTo(rand(100, window.innerWidth - 150), rand(40, 140), C.speed.walk, () => {
+            this._setAnim('idle');
+            const returnLines = ['Miss me?', '*drops a leaf* souvenir!', 'Nothing interesting out there', 'I\'m BACK!', '*casually returns*'];
+            this.say(pick(returnLines)); sfx.chirp();
+            if (Math.random() < 0.3) this._particle(this.x + 30, this.y - 10, pick(['🍃', '🌿', '🪶']));
+          });
+        }, rand(10000, 20000));
+      });
+    }
+
+    // R3 Feature 2: Slip Off Code Cell & Fall
+    _slipOffCode() {
+      const cells = Lab.cells();
+      if (!cells.length) { this._walkRandom(); return; }
+      const cell = pick(cells);
+      const r = Lab.rect(cell);
+      if (!r || r.top < -50 || r.top > window.innerHeight) { this._walkRandom(); return; }
+      this._goToCell(cell, () => {
+        if (this._dead) return;
+        this.say('*perches on cell*'); this.setMood('content'); this._setAnim('idle');
+        setTimeout(() => {
+          if (this._dead) return;
+          this.say('wh-WHOAAA!'); this._exprStartled(); sfx.boing();
+          this._setAnim('tumble-fall');
+          for (let i = 0; i < 4; i++) setTimeout(() => { if (!this._dead) this._particle(this.x + 30 + rand(-15, 15), this.y + rand(0, 30), '🪶'); }, i * 200);
+          setTimeout(() => {
+            if (this._dead) return;
+            this._offScreen = true; this.el.style.display = 'none';
+            this._slipReturnT = setTimeout(() => {
+              if (this._dead) return;
+              this._offScreen = false; this.el.style.display = '';
+              this.x = rand(100, window.innerWidth - 150); this.y = -60; this._pos();
+              this._setAnim('fly'); sfx.flap();
+              this._moveTo(rand(100, window.innerWidth - 150), rand(40, 140), C.speed.fly, () => {
+                this._squash(); this.setMood('concerned');
+                this.say(pick(['...we don\'t talk about that.', 'The code was SLIPPERY!', '*checks if anyone saw*', '*embarrassed chirp*']));
+                this._setAnim('idle');
+                setTimeout(() => this.setMood('content'), 5000);
+              });
+            }, 3000);
+          }, 1200);
+        }, 3500);
+      });
+    }
+
+    // R3 Feature 3: Laptop Coding + Glasses
+    _laptopCoding() {
+      this.say('*pulls out tiny laptop*');
+      const laptop = document.createElement('div');
+      laptop.style.cssText = `position:fixed;font-size:16px;pointer-events:none;z-index:100005;opacity:0;transition:opacity 0.3s;left:${this.x + (this.dir > 0 ? 55 : -15)}px;top:${this.y + 40}px;`;
+      laptop.textContent = '💻'; document.body.appendChild(laptop);
+      setTimeout(() => { laptop.style.opacity = '1'; }, 10);
+      const origAcc = this.el.querySelector('.m-seasonal')?.textContent;
+      setTimeout(() => {
+        if (this._dead) { laptop.remove(); return; }
+        const acc = this.el.querySelector('.m-seasonal');
+        if (acc) acc.textContent = '🤓';
+        this.say('*puts on tiny glasses*'); sfx.pop();
+      }, 500);
+      setTimeout(() => {
+        if (this._dead) { laptop.remove(); return; }
+        this._setAnim('peck'); this._beakOpen();
+        this.say(pick(['import seed_detector', 'def be_cute(): return True', '# TODO: get more seeds']));
+      }, 1200);
+      setTimeout(() => {
+        if (this._dead) { laptop.remove(); return; }
+        this._setAnim('tilt'); this._beakClose();
+        this.say(pick(['Hmm... semicolon or no semicolon?', '*adjusts glasses*', 'This algorithm needs more birb']));
+      }, 3000);
+      setTimeout(() => {
+        if (this._dead) { laptop.remove(); return; }
+        this._setAnim('peck'); this._beakOpen();
+        for (let i = 0; i < 3; i++) setTimeout(() => this._particle(this.x + 40 + rand(-10, 10), this.y - 5, pick(['💻', '⌨️', '✨'])), i * 300);
+      }, 4500);
+      setTimeout(() => {
+        if (this._dead) { laptop.remove(); return; }
+        this._beakClose();
+        this.say(pick(['*closes laptop dramatically*', 'Ship it! 🚀', 'I should work at Google.']));
+        if (Math.random() < 0.3) setTimeout(() => this.say('Actually I have no idea what I just wrote'), 1500);
+      }, 6500);
+      setTimeout(() => {
+        if (this._dead) { laptop.remove(); return; }
+        laptop.style.opacity = '0'; setTimeout(() => laptop.remove(), 300);
+        const acc = this.el.querySelector('.m-seasonal');
+        if (acc && origAcc) acc.textContent = origAcc;
+        else if (acc) this._applyAccessory();
+        this._setAnim('idle');
+      }, 7500);
+    }
+
+    // R3 Feature 4: Animal Sound Mimicry
+    _animalMimic(specificAnimal) {
+      const animals = [
+        { name: 'dog', sound: () => sfx.bark(), line: 'WOOF! ...wait', aftermath: 'The dogs would be SO impressed' },
+        { name: 'cat', sound: () => sfx.meow(), line: '*MEOW!* ...no that\'s not right', aftermath: 'I\'ve been watching too many YouTube videos' },
+        { name: 'duck', sound: () => sfx.quack(), line: 'QUACK! ...I\'m a bird why am I doing this', aftermath: 'Nailed it.' },
+        { name: 'frog', sound: () => sfx.ribbit(), line: '*RIBBIT!* ...okay that was weird', aftermath: '*confused by own abilities*' },
+      ];
+      let animal;
+      if (specificAnimal) animal = animals.find(a => a.name === specificAnimal) || pick(animals);
+      else animal = pick(animals);
+      this._setAnim('tilt'); this.say('*clears throat*');
+      setTimeout(() => {
+        if (this._dead) return;
+        this._beakOpen(); animal.sound();
+      }, 800);
+      setTimeout(() => {
+        if (this._dead) return;
+        this.say(animal.line);
+      }, 1000);
+      setTimeout(() => {
+        if (this._dead) return;
+        this._beakClose();
+        this.say(pick([animal.aftermath, 'The other animals would be SO impressed', '*confused by own abilities*']));
+      }, 2500);
+      setTimeout(() => { if (!this._dead) this._setAnim('idle'); }, 3500);
+    }
+
+    // R3 Feature 5: Friend Visit
+    _friendVisit() {
+      this.say('Oh! A friend is coming!!'); sfx.chirp(); sfx.chirp2();
+      const fromLeft = Math.random() > 0.5;
+      setTimeout(() => {
+        if (this._dead) return;
+        const friend = document.createElement('div');
+        friend.className = 'mango-flock-bird';
+        friend.innerHTML = `<div class="flock-body">${MANGO_FLY}</div>`;
+        friend.style.top = rand(30, 120) + 'px';
+        friend.style.left = (fromLeft ? -70 : window.innerWidth + 70) + 'px';
+        if (!fromLeft) friend.querySelector('.flock-body').style.transform = 'scaleX(-1)';
+        document.body.appendChild(friend);
+        // fly in
+        const landX = this.x + (this.dir > 0 ? 70 : -50);
+        const landY = this.y;
+        const sx = fromLeft ? -70 : window.innerWidth + 70;
+        const t0 = performance.now(), flyDur = 1500;
+        const flyIn = now => {
+          const t = (now - t0) / flyDur;
+          if (t >= 1) {
+            friend.style.left = landX + 'px'; friend.style.top = landY + 'px';
+            afterLand(); return;
+          }
+          friend.style.left = (sx + (landX - sx) * t) + 'px';
+          friend.style.top = (parseFloat(friend.style.top) + (landY - parseFloat(friend.style.top)) * t * 0.1) + 'px';
+          requestAnimationFrame(flyIn);
+        };
+        requestAnimationFrame(flyIn);
+        const afterLand = () => {
+          if (this._dead) { friend.remove(); return; }
+          this.say('*excited chattering*'); this._setAnim('bob'); sfx.chirp();
+          setTimeout(() => {
+            if (this._dead) { friend.remove(); return; }
+            this.say(pick(['*whispers gossip to friend*', '*tells friend a secret*', '*chatters excitedly*']));
+          }, 1500);
+          setTimeout(() => {
+            if (this._dead) { friend.remove(); return; }
+            this.say('*friend chirps back*');
+            for (let i = 0; i < 3; i++) setTimeout(() => this._particle(this.x + 50 + rand(-10, 10), this.y - 10, pick(['🐦', '💕', '✨'])), i * 200);
+          }, 3500);
+          setTimeout(() => {
+            if (this._dead) { friend.remove(); return; }
+            // friend flies away
+            const exitX = fromLeft ? window.innerWidth + 100 : -100;
+            const t0f = performance.now(), flyOutDur = 1500;
+            const flyOut = now => {
+              const t = (now - t0f) / flyOutDur;
+              if (t >= 1) { friend.remove(); return; }
+              friend.style.left = (landX + (exitX - landX) * t) + 'px';
+              friend.style.top = (landY - Math.sin(t * Math.PI) * 40) + 'px';
+              requestAnimationFrame(flyOut);
+            };
+            requestAnimationFrame(flyOut);
+            this.say(pick(['*waves goodbye*', 'Come back soon!', '*sad to see friend go*']));
+            this._setAnim('idle');
+          }, 5500);
+        };
+      }, 500);
+    }
+
+    // R3 Feature 6: Sneeze Fit
+    _sneezeFit() {
+      this._eyesWide(); this.say('*nose tickle...*');
+      const w = this.el.querySelector('.m-body-wrap');
+      setTimeout(() => {
+        if (this._dead) return;
+        w.style.transition = 'transform 0.1s ease';
+        w.style.transform = (this.dir === -1 ? 'scaleX(-1) ' : '') + 'scaleY(0.8)';
+        setTimeout(() => { w.style.transform = (this.dir === -1 ? 'scaleX(-1) ' : '') + 'scaleY(1.15)'; setTimeout(() => { w.style.transform = this.dir === -1 ? 'scaleX(-1)' : ''; }, 100); }, 100);
+        this.say('*ACHOO!*'); this._particle(this.x + 30 + rand(-10, 10), this.y - 10, '🪶');
+      }, 800);
+      setTimeout(() => {
+        if (this._dead) return;
+        w.style.transform = (this.dir === -1 ? 'scaleX(-1) ' : '') + 'scaleY(0.8)';
+        setTimeout(() => { w.style.transform = (this.dir === -1 ? 'scaleX(-1) ' : '') + 'scaleY(1.2)'; setTimeout(() => { w.style.transform = this.dir === -1 ? 'scaleX(-1)' : ''; }, 100); }, 100);
+        this.say('*ah-ah-ACHOO!*');
+        for (let i = 0; i < 2; i++) this._particle(this.x + 30 + rand(-15, 15), this.y - 10, '🪶');
+      }, 1600);
+      setTimeout(() => {
+        if (this._dead) return;
+        this._setAnim('screee');
+        w.style.transform = (this.dir === -1 ? 'scaleX(-1) ' : '') + 'scaleY(0.75)';
+        setTimeout(() => { w.style.transform = (this.dir === -1 ? 'scaleX(-1) ' : '') + 'scaleY(1.25)'; setTimeout(() => { w.style.transition = ''; w.style.transform = this.dir === -1 ? 'scaleX(-1)' : ''; }, 100); }, 100);
+        this.say('*ACHOO!! ACHOO!!*');
+        for (let i = 0; i < 3; i++) this._particle(this.x + 30 + rand(-20, 20), this.y - 15, '🪶');
+      }, 2500);
+      setTimeout(() => {
+        if (this._dead) return;
+        this._setAnim('idle'); this._eyesNormal();
+        this.say(pick(['*sniff*... excuse me', 'Feather dust!', '*wipes beak*']));
+      }, 3200);
+    }
+
+    // R3 Feature 7: Trip and Faceplant
+    _trip() {
+      this._setAnim('walk');
+      const targetX = this.x + this.dir * 80;
+      this._moveTo(clamp(targetX, 20, window.innerWidth - 80), this.y, C.speed.walk, () => {});
+      setTimeout(() => {
+        if (this._dead) return;
+        cancelAnimationFrame(this._raf);
+        this.say('*trips!*'); sfx.boing();
+        const w = this.el.querySelector('.m-body-wrap');
+        w.style.transition = 'transform 0.15s ease';
+        w.style.transform = (this.dir === -1 ? 'scaleX(-1) ' : '') + 'rotate(45deg) translateY(5px)';
+        setTimeout(() => {
+          if (this._dead) return;
+          this.say('*ow*');
+          for (let i = 0; i < 3; i++) this._particle(this.x + 30 + rand(-10, 10), this.y - 15, pick(['💫', '⭐', '😵']));
+        }, 500);
+        setTimeout(() => {
+          if (this._dead) return;
+          w.style.transition = 'transform 0.5s ease';
+          w.style.transform = this.dir === -1 ? 'scaleX(-1)' : '';
+          this._setAnim('idle');
+        }, 2000);
+        setTimeout(() => {
+          if (this._dead) return;
+          w.style.transition = '';
+          this.say(pick(['I MEANT to do that.', '*blames the pixel*', 'That pixel tripped me!']));
+        }, 2800);
+      }, 600);
+    }
+
+    // R3 Feature 8: Gets Stuck Upside Down
+    _stuckUpsideDown() {
+      this._setAnim('wing-stretch');
+      this.say('*BIG stretch-- WHOA!*'); sfx.boing();
+      const w = this.el.querySelector('.m-body-wrap');
+      setTimeout(() => {
+        if (this._dead) return;
+        w.style.transition = 'transform 0.3s ease';
+        w.style.transform = (this.dir === -1 ? 'scaleX(-1) ' : '') + 'rotate(180deg)';
+        this._exprStartled(); this.say('HELP! I\'M STUCK!');
+      }, 800);
+      // wiggle
+      let wiggleI;
+      setTimeout(() => {
+        if (this._dead) return;
+        let angle = 180;
+        wiggleI = setInterval(() => {
+          if (this._dead) { clearInterval(wiggleI); return; }
+          angle = angle === 170 ? 190 : 170;
+          w.style.transform = (this.dir === -1 ? 'scaleX(-1) ' : '') + `rotate(${angle}deg)`;
+        }, 200);
+        this.say('*wiggles feet*');
+      }, 1500);
+      setTimeout(() => {
+        if (this._dead) { clearInterval(wiggleI); return; }
+        this.say(pick(['...anyone? Hello?', '*pathetic chirp*', 'This is FINE.']));
+      }, 3000);
+      setTimeout(() => {
+        if (this._dead) { clearInterval(wiggleI); return; }
+        clearInterval(wiggleI);
+        w.style.transition = 'transform 0.2s ease';
+        w.style.transform = (this.dir === -1 ? 'scaleX(-1) ' : '') + 'rotate(90deg)';
+        setTimeout(() => {
+          w.style.transform = (this.dir === -1 ? 'scaleX(-1) ' : '') + 'rotate(120deg)';
+          setTimeout(() => {
+            w.style.transform = this.dir === -1 ? 'scaleX(-1)' : '';
+            sfx.boing();
+          }, 300);
+        }, 300);
+      }, 5000);
+      setTimeout(() => {
+        if (this._dead) return;
+        w.style.transition = '';
+        this._squash(); this._setAnim('idle');
+        this.say(pick(['*pretends that didn\'t happen*', 'I was doing yoga.', 'Nobody saw that, right?']));
+      }, 6000);
+    }
+
+    // R3 Feature 9: Bug Hunt
+    _bugHunt() {
+      this._eyesWide(); this._setAnim('tilt');
+      this.say('*spots something*');
+      const bug = document.createElement('div');
+      bug.className = 'mango-bug'; bug.textContent = '🐛';
+      let bugX = rand(50, window.innerWidth - 50), bugY = rand(50, window.innerHeight - 100);
+      bug.style.left = bugX + 'px'; bug.style.top = bugY + 'px';
+      document.body.appendChild(bug);
+      let chaseCount = 0;
+      const chaseBug = () => {
+        if (this._dead) { bug.remove(); return; }
+        this._setAnim('chase');
+        this.say(chaseCount === 0 ? 'GET IT!' : 'STAY STILL!');
+        this._moveTo(clamp(bugX - 30, 10, window.innerWidth - 80), clamp(bugY - 60, 10, window.innerHeight - 80), C.speed.run, () => {
+          if (this._dead) { bug.remove(); return; }
+          chaseCount++;
+          if (chaseCount < 3) {
+            this.say(pick(['MISSED!', 'Come BACK here!', 'ARGH!']));
+            bugX = rand(50, window.innerWidth - 50); bugY = rand(50, window.innerHeight - 100);
+            bug.style.left = bugX + 'px'; bug.style.top = bugY + 'px';
+            setTimeout(() => chaseBug(), 500);
+          } else {
+            // catch!
+            this._setAnim('peck'); sfx.crunch();
+            bug.remove();
+            for (let i = 0; i < 4; i++) this._particle(bugX + rand(-10, 10), bugY + rand(-10, 10), pick(['✨', '💥', '⭐']));
+            this.say('GOT IT!! *crunch*'); this.setMood('excited'); sfx.happy();
+            setTimeout(() => { this._setAnim('idle'); this.setMood('content'); }, 1500);
+          }
+        });
+      };
+      setTimeout(() => chaseBug(), 1000);
+    }
+
+    // R3 Feature 10: Cursor Conversation
+    _cursorConversation() {
+      if (Date.now() - this._lastCursorConvo < 60000) return;
+      this._lastCursorConvo = Date.now();
+      this._waddleTo(clamp(mx - 50, 10, window.innerWidth - 80), clamp(my - 30, 10, 200), () => {
+        if (this._dead) return;
+        this._setAnim('tilt'); this.say('Oh! Hello there, little arrow~');
+        setTimeout(() => {
+          if (this._dead) return;
+          this._setAnim('bob'); this.say(pick(['*listens intently*', 'Mhm. Go on.']));
+        }, 1500);
+        setTimeout(() => {
+          if (this._dead) return;
+          this._setAnim('tilt'); this.say('Really?! That\'s fascinating!');
+        }, 3000);
+        setTimeout(() => {
+          if (this._dead) return;
+          this._setAnim('bob'); this.say(pick(['*whispers to cursor*', 'Don\'t tell the human I said that.']));
+        }, 4500);
+        setTimeout(() => {
+          if (this._dead) return;
+          this._setAnim('idle'); this.say('Nice chat! Same time tomorrow?');
+        }, 6000);
+      });
+    }
+
+    // R3 Feature 11: Fake Asleep (Attention Seeking)
+    _fakeAsleep() {
+      this.say('*yawns dramatically*'); this.setMood('sleepy');
+      setTimeout(() => {
+        if (this._dead) return;
+        this._exprSleep(); this._puffUp(); this.say('zzz...');
+        let peekI = setInterval(() => {
+          if (this._dead) { clearInterval(peekI); return; }
+          const r = this.el.getBoundingClientRect();
+          const d = Math.hypot(mx - (r.left + r.width / 2), my - (r.top + r.height / 2));
+          if (d < 200) this._eyesOneOpen();
+          else this._eyesClosed();
+        }, 2000);
+        const fakeClickHandler = (e) => {
+          if (this._dead) { clearInterval(peekI); return; }
+          clearInterval(peekI);
+          this.el.removeEventListener('click', fakeClickHandler);
+          this._exprStartled();
+          this.say('I WASN\'T SLEEPING! ...wait I mean I WAS!');
+          this.setMood('happy'); sfx.chirp();
+          setTimeout(() => { this._eyesNormal(); this._unPuff(); this._setAnim('idle'); this.setMood('content'); }, 1500);
+        };
+        this.el.addEventListener('click', fakeClickHandler);
+        setTimeout(() => {
+          if (this._dead) return;
+          this.say(pick(['*dramatic sigh*', 'I guess nobody cares...']));
+        }, 4000);
+        setTimeout(() => {
+          if (this._dead) { clearInterval(peekI); return; }
+          clearInterval(peekI);
+          this.el.removeEventListener('click', fakeClickHandler);
+          this.say('FINE. I\'m NOT tired anyway.');
+          this.setMood('annoyed'); this._eyesNormal(); this._unPuff(); this._setAnim('idle');
+          setTimeout(() => this.setMood('content'), 3000);
+        }, 6000);
+      }, 1200);
+    }
+
+    // R3 Feature 12: Dark Mode Reaction
+    _darkModeListener() {
+      let wasDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches || false;
+      const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+      if (!mq) return;
+      const handler = (e) => {
+        if (this._dead || this._sleeping || this._offScreen) return;
+        if (e.matches && !wasDark) {
+          wasDark = true;
+          this._darkModeReaction(true);
+        } else if (!e.matches && wasDark) {
+          wasDark = false;
+          this._darkModeReaction(false);
+        }
+      };
+      mq.addEventListener('change', handler);
+      this._darkModeCleanup = () => mq.removeEventListener('change', handler);
+    }
+    _darkModeReaction(isDark) {
+      if (isDark) {
+        this._exprStartled(); this._setAnim('screee');
+        this.say('WHO TURNED OFF THE LIGHTS?!'); sfx.screee();
+        setTimeout(() => {
+          if (this._dead) return;
+          this._setAnim('bob'); this._eyesWide();
+          this.say('*huddles close to screen glow*');
+        }, 1500);
+        setTimeout(() => {
+          if (this._dead) return;
+          this._setAnim('idle'); this._eyesNormal();
+          this.say('...okay. I\'m fine. It\'s just... coding ambiance. Right?');
+        }, 3500);
+      } else {
+        this.say('LIGHT! GLORIOUS LIGHT!'); sfx.happy();
+        this._setAnim('happy-dance');
+        setTimeout(() => { if (!this._dead) this._setAnim('idle'); }, 2000);
+      }
+    }
+
+    // R3 Feature 13: Show Off After Rapid Pets
+    _showOff() {
+      this.setMood('excited'); this.say('LOOK WHAT I CAN DO!!'); sfx.happy();
+      setTimeout(() => { if (this._dead) return; this._setAnim('wing-stretch'); this.say('*WINGS!*'); }, 500);
+      setTimeout(() => { if (this._dead) return; this._setAnim('happy-dance'); this.say('*AND dance!*'); }, 2000);
+      setTimeout(() => { if (this._dead) return; this._setAnim('chase-tail'); this.say('*AND SPIN!*'); }, 3500);
+      setTimeout(() => { if (this._dead) return; this._heartWings(); this.say('*AND HEART WINGS!*'); }, 5300);
+      setTimeout(() => { if (this._dead) return; this._setAnim('bob'); this.say('*takes a bow*'); }, 7300);
+      setTimeout(() => {
+        if (this._dead) return;
+        this._setAnim('idle'); this.say('Thank you! I\'m here all day!');
+        for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['⭐', '✨', '🌟'])), i * 150);
+        this.setMood('content');
+      }, 8500);
+    }
+
+    // R3 Feature 14: Resize Earthquake
+    _resizeReaction() {
+      const now = Date.now();
+      if (now - (this._lastResizeReact || 0) < 15000) return;
+      this._lastResizeReact = now;
+      this._exprStartled(); this._setAnim('screee');
+      this.say('EARTHQUAKE!!'); sfx.boing();
+      setTimeout(() => {
+        if (this._dead) return;
+        this._setAnim('bob'); this.say('*checks surroundings*');
+      }, 1000);
+      setTimeout(() => {
+        if (this._dead) return;
+        this._setAnim('idle'); this._eyesNormal(); this._beakClose();
+        this.say('...oh. You just resized the window.');
+      }, 2500);
+    }
+
+    // R3 Feature 15: Contact Call During Fast Typing
+    _contactCall() {
+      if (Date.now() - this._lastContactCall < 120000) return;
+      this._lastContactCall = Date.now();
+      this._setAnim('tilt');
+      this.say(pick(['*contact call*', 'CHIRP? CHIRP CHIRP?'])); sfx.chirp();
+      setTimeout(() => {
+        if (this._dead) return;
+        this._setAnim('bob'); this._beakOpen();
+        this.say('*CHIRP CHIRP!*');
+      }, 1500);
+      setTimeout(() => {
+        if (this._dead) return;
+        this._setAnim('idle'); this._beakClose();
+        this.say('Okay good. You\'re still typing. Carry on!');
+      }, 2500);
+    }
+
+    // Feature 17: Click Training Mini-Game
+    _clickTraining() {
+      this.say('Click when I bob! 🎯'); sfx.chirp();
+      this._setAnim('idle');
+      this._inClickTraining = true;
+      let score = 0, round = 0;
+      const totalRounds = 5;
+      let canClick = false;
+      const cleanup = () => {
+        this._inClickTraining = false;
+        this._trainingClick = null;
+        this.el.removeEventListener('click', handler);
+        clearTimeout(this._clickTrainSafetyT);
+      };
+      const doRound = () => {
+        if (this._dead) { cleanup(); return; }
+        if (round >= totalRounds) {
+          if (score === totalRounds) {
+            this.say('PERFECT! You\'re a natural trainer! 🏆'); sfx.party(); sfx.happy();
+            this.app.effects.confetti();
+            for (let i = 0; i < 6; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['🏆', '✨', '⭐', '🎉'])), i * 100);
+          } else if (score >= 3) {
+            this.say(`${score}/${totalRounds}! Pretty good! 🌟`); sfx.happy();
+          } else {
+            this.say(`${score}/${totalRounds}... we'll practice more! 🧡`); sfx.chirp();
+          }
+          this._setAnim('idle'); cleanup();
+          return;
+        }
+        setTimeout(() => {
+          if (this._dead) { cleanup(); return; }
+          this._setAnim('bob'); canClick = true;
+          this.say(`Bob ${round + 1}!`);
+          sfx.chirp3();
+          const clickTimeout = setTimeout(() => {
+            canClick = false;
+            round++;
+            this._setAnim('idle');
+            doRound();
+          }, 500);
+          this._trainingClick = () => {
+            if (canClick) {
+              canClick = false;
+              clearTimeout(clickTimeout);
+              score++;
+              this._particle(this.x + 30, this.y - 10, '✅');
+              this.say('Got it! ✅');
+              round++;
+              this._setAnim('idle');
+              setTimeout(doRound, 500);
+            }
+          };
+        }, rand(1000, 2500));
+      };
+      const handler = (e) => { if (this._trainingClick) { e.stopImmediatePropagation(); this._trainingClick(); } };
+      this.el.addEventListener('click', handler);
+      this._clickTrainSafetyT = setTimeout(() => cleanup(), 25000);
+      doRound();
+    }
+
     destroy() {
       this._dead = true;
       clearTimeout(this._tmr); clearTimeout(this._sayT); clearTimeout(this._blkT); clearTimeout(this._exprT);
       clearInterval(this._mdI); clearInterval(this._cursorStillI);
-      clearTimeout(this._trainTmr); clearTimeout(this._flyBackT); clearTimeout(this._wanderT); clearTimeout(this._dreamT);
+      clearTimeout(this._trainTmr); clearTimeout(this._flyBackT); clearTimeout(this._wanderT); clearTimeout(this._dreamT); clearTimeout(this._clickTrainSafetyT);
+      // R3 cleanup
+      clearTimeout(this._casualWalkBackT); clearTimeout(this._slipReturnT);
+      document.querySelectorAll('.mango-bug').forEach(b => b.remove());
+      if (this._darkModeCleanup) this._darkModeCleanup();
       cancelAnimationFrame(this._raf);
       if (this._napWakeCheck) { document.removeEventListener('mousemove', this._napWakeCheck); this._napWakeCheck = null; }
       if (this._resizeHandler) { window.removeEventListener('resize', this._resizeHandler); }
@@ -1702,6 +2765,10 @@ const _CHITTI_SOUNDS = {
       if (this._startleKey) document.removeEventListener('keydown', this._startleKey);
       if (this._ssHandler) document.removeEventListener('keydown', this._ssHandler);
       if (this._typingHandler) document.removeEventListener('keydown', this._typingHandler);
+      // Feature 9: Konami cleanup
+      if (this._konamiHandler) document.removeEventListener('keydown', this._konamiHandler);
+      // Feature 12: Nest cleanup
+      if (this._nest.el) this._nest.el.remove();
       this.el.remove();
     }
   }
@@ -2131,6 +3198,27 @@ const _CHITTI_SOUNDS = {
         'voice': () => { pick([() => sfx.realChirp(), () => sfx.realSquawk(), () => sfx.realParrot()])(); m.say(pick(['*REAL bird noises!*', 'That\'s my ACTUAL voice! 🐦', '*real cockatiel sounds*'])); m._setAnim('bob'); m._beakOpen(); setTimeout(() => { m._setAnim('idle'); m._beakClose(); }, 2000); },
         'talk': () => { sfx.realParrot(); m.say(pick(['*cockatiel chatter*', '*babbles excitedly*', '*mimics your voice* 🐦'])); m._setAnim('bob'); m._beakOpen(); for (let i = 0; i < 4; i++) setTimeout(() => m._particle(m.x + 30 + rand(-10, 10), m.y - 10, pick(['🗣️', '💬', '🐦'])), i * 200); setTimeout(() => { m._setAnim('idle'); m._beakClose(); }, 2500); },
         'real voice': () => { pick([() => sfx.realChirp(), () => sfx.realSing(), () => sfx.realSquawk(), () => sfx.realParrot()])(); m.say(pick(['*REAL bird noises!*', 'That\'s my ACTUAL voice! 🐦', '*real cockatiel sounds*'])); m._setAnim('bob'); m._beakOpen(); for (let i = 0; i < 6; i++) setTimeout(() => m._particle(m.x + 30 + rand(-15, 15), m.y - 10, pick(['🎵', '🐦', '✨'])), i * 400); setTimeout(() => { m._setAnim('idle'); m._beakClose(); }, 3000); },
+        // Feature 17: Click training mini-game
+        'training': () => { m._clickTraining(); },
+        'train': () => { m._clickTraining(); },
+        'clicker': () => { m._clickTraining(); },
+        // R3: New commands
+        'walk off': () => { m._casualWalkOff(); },
+        'stroll': () => { m._casualWalkOff(); },
+        'slip': () => { m._slipOffCode(); },
+        'fall': () => { m._slipOffCode(); },
+        'laptop': () => { m._laptopCoding(); },
+        'code': () => { m._laptopCoding(); },
+        'hack': () => { m._laptopCoding(); },
+        'bark': () => { m._animalMimic('dog'); },
+        'meow': () => { m._animalMimic('cat'); },
+        'quack': () => { m._animalMimic('duck'); },
+        'hunt': () => { m._bugHunt(); },
+        'bug hunt': () => { m._bugHunt(); },
+        'call friend': () => { m._friendVisit(); },
+        'friend': () => { m._friendVisit(); },
+        'sneeze': () => { m._sneezeFit(); },
+        'show off': () => { m._showOff(); },
       };
       // exact match first, then partial (min 3 chars to avoid false matches)
       if (cmds[cmd]) { cmds[cmd](); return; }
@@ -2196,6 +3284,15 @@ const _CHITTI_SOUNDS = {
             <div class="mg-cmd"><b>"screech"</b> / <b>"scream"</b> — SCREEE!</div>
             <div class="mg-cmd"><b>"fetch"</b> — "I'm a bird not a dog!"</div>
             <div class="mg-cmd"><b>"treasure hunt"</b> — find the seed!</div>
+            <div class="mg-cmd"><b>"training"</b> — clicker training game!</div>
+            <div class="mg-cmd"><b>"stroll"</b> — casual walk off screen</div>
+            <div class="mg-cmd"><b>"slip"</b> / <b>"fall"</b> — slips off code cell!</div>
+            <div class="mg-cmd"><b>"laptop"</b> / <b>"hack"</b> — codes on laptop</div>
+            <div class="mg-cmd"><b>"bark"</b> / <b>"meow"</b> / <b>"quack"</b> — animal impressions</div>
+            <div class="mg-cmd"><b>"friend"</b> — calls a friend to visit</div>
+            <div class="mg-cmd"><b>"hunt"</b> — hunts a bug!</div>
+            <div class="mg-cmd"><b>"sneeze"</b> — sneeze fit!</div>
+            <div class="mg-cmd"><b>"show off"</b> — trick chain!</div>
           </div>
           <div class="mg-section">💻 Code & Coding
             <div class="mg-cmd"><b>"hello world"</b> — a classic!</div>
@@ -2236,7 +3333,7 @@ const _CHITTI_SOUNDS = {
             <div class="mg-cmd"><b>"i'm stressed"</b> — calms you</div>
           </div>
         </div>
-        <div class="mg-sub" style="margin-top:12px">✨ Plus: click to pet · double-click to feed · drag fast to shoo<br>Hover 3s for peekaboo · Chitti reacts to your code running!</div>
+        <div class="mg-sub" style="margin-top:12px">✨ Plus: click to pet · double-click to feed · drag fast to shoo<br>Hover 3s for peekaboo · Chitti reacts to your code running!<br>Secret: ↑↑↓↓←→←→BA · Drag to same spot 3x = comfort perch · Holiday surprises!</div>
         <div class="mg-footer">tap anywhere to close · run chitti("help") anytime</div>
       </div>`;
       g.addEventListener('click', () => { g.classList.add('mg-hide'); setTimeout(() => g.remove(), 400); });
