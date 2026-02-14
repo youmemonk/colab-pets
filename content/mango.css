@@ -214,3 +214,9 @@ body.mango-seed-cursor, body.mango-seed-cursor * { cursor: url("data:image/svg+x
 #mango-fx-btn:active { transform: scale(0.95); }
 .mfx-label { position: absolute; bottom: 54px; right: 0; background: white; color: #886; font-size: 10px; padding: 3px 9px; border-radius: 6px; white-space: nowrap; opacity: 0; transition: opacity 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.1); font-family: 'Comic Sans MS', cursive; pointer-events: none; }
 #mango-fx-btn:hover .mfx-label { opacity: 1; }
+
+/* ── Dream Bubbles ── */
+.mango-dream { position: fixed; pointer-events: none; z-index: 100005; background: white; border: 1.5px solid #C8D8F0; border-radius: 50%; padding: 6px 10px; font-size: 14px; white-space: nowrap; opacity: 0; animation: md-float 4s ease-in-out forwards; box-shadow: 0 2px 8px rgba(136,153,204,0.2); }
+.mango-dream::before { content: ''; position: absolute; bottom: -8px; left: 12px; width: 8px; height: 8px; background: white; border: 1.5px solid #C8D8F0; border-radius: 50%; }
+.mango-dream::after { content: ''; position: absolute; bottom: -14px; left: 8px; width: 5px; height: 5px; background: white; border: 1.5px solid #C8D8F0; border-radius: 50%; }
+@keyframes md-float { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 15% { opacity: 0.85; transform: translateY(-5px) scale(1); } 75% { opacity: 0.85; transform: translateY(-25px) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(0.7); } }

@@ -228,6 +228,12 @@ body.mango-seed-cursor, body.mango-seed-cursor * { cursor: url("data:image/svg+x
 #mango-fx-btn:active { transform: scale(0.95); }
 .mfx-label { position: absolute; bottom: 54px; right: 0; background: white; color: #886; font-size: 10px; padding: 3px 9px; border-radius: 6px; white-space: nowrap; opacity: 0; transition: opacity 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.1); font-family: 'Comic Sans MS', cursive; pointer-events: none; }
 #mango-fx-btn:hover .mfx-label { opacity: 1; }
+
+/* ── Dream Bubbles ── */
+.mango-dream { position: fixed; pointer-events: none; z-index: 100005; background: white; border: 1.5px solid #C8D8F0; border-radius: 50%; padding: 6px 10px; font-size: 14px; white-space: nowrap; opacity: 0; animation: md-float 4s ease-in-out forwards; box-shadow: 0 2px 8px rgba(136,153,204,0.2); }
+.mango-dream::before { content: ''; position: absolute; bottom: -8px; left: 12px; width: 8px; height: 8px; background: white; border: 1.5px solid #C8D8F0; border-radius: 50%; }
+.mango-dream::after { content: ''; position: absolute; bottom: -14px; left: 8px; width: 5px; height: 5px; background: white; border: 1.5px solid #C8D8F0; border-radius: 50%; }
+@keyframes md-float { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 15% { opacity: 0.85; transform: translateY(-5px) scale(1); } 75% { opacity: 0.85; transform: translateY(-25px) scale(1); } 100% { opacity: 0; transform: translateY(-40px) scale(0.7); } }
 `;
   document.head.appendChild(style);
 })();
@@ -707,7 +713,8 @@ const _CHITTI_SOUNDS = {
       this.lastTouch = Date.now(); this.petCount = 0;
       this._dead = false; this._dragging = false; this._dragged = false;
       this._training = false; this._sleeping = false; this._offScreen = false;
-      this._build(); this._enter(); this._blinkLoop(); this._moodDecay(); this._eyeLoop(); this._applyAccessory(); this._trackCursorStill(); this._wanderLoop();
+      this._lastActivity = Date.now(); this._learnedVars = []; this._bedtimeStoryDone = false;
+      this._build(); this._enter(); this._blinkLoop(); this._moodDecay(); this._eyeLoop(); this._applyAccessory(); this._trackCursorStill(); this._wanderLoop(); this._startleListener(); this._screenshotListener(); this._typingSpeedTracker();
       this._resizeHandler = () => { this.x = clamp(this.x, -30, window.innerWidth - 40); this.y = clamp(this.y, 0, window.innerHeight - 60); this._pos(); };
       window.addEventListener('resize', this._resizeHandler);
     }
@@ -830,6 +837,7 @@ const _CHITTI_SOUNDS = {
           this._sleeping = true; this.setMood('sleepy'); this._setAnim('sleep');
           this._exprSleep();
           this.say(pick(['*tucks head*', 'zzz...', '*one foot up*'])); this._addZzz();
+          this._dreamT = setTimeout(() => this._dreamLoop(), rand(5000, 8000));
           this._next(tick, rand(8000, 15000)); return;
         }
         // wake up if user interacted
@@ -918,6 +926,8 @@ const _CHITTI_SOUNDS = {
         () => { this._placeItem(); },
         // screech for attention
         () => { this._screee(); },
+        // comment on learned variable
+        () => { if (this._learnedVars.length) { this._commentOnVar(); } else { this.say(pick(['*chirp*', '*looks around*'])); } },
       ];
       pick(acts)();
     }
@@ -1141,7 +1151,7 @@ const _CHITTI_SOUNDS = {
       document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
     }
     _onPet(e) {
-      e.stopPropagation(); this.petCount++; this.lastTouch = Date.now();
+      e.stopPropagation(); this.petCount++; this.lastTouch = Date.now(); this._lastActivity = Date.now();
       this._sleeping = false; this._rmZzz(); this.setMood('happy'); sfx.chirp();
       this._exprNuzzle(); // closes eyes, leans in
       for (let i = 0; i < 4; i++) setTimeout(() => this._particle(e.clientX + rand(-12, 12), e.clientY - 10, pick(['❤️', '💕', '✨', '🧡', '💖'])), i * 80);
@@ -1247,11 +1257,14 @@ const _CHITTI_SOUNDS = {
       const h = new Date().getHours();
       if ((h >= 23 || h < 5) && !this._sleeping) {
         // late night care mode — very gentle, less mischief
-        if (Math.random() < 0.3) {
+        if (!this._bedtimeStoryDone && Math.random() < 0.2) {
+          this._bedtimeStory();
+        } else if (Math.random() < 0.3) {
           this.say(pick(['It\'s so late... 🌙', 'Please sleep soon 💕', '*worried chirp*', 'Your health matters more than code 🧡', 'Go to bed! Doctor bird\'s orders! 🐦']));
           this._exprNuzzle();
         } else if (Math.random() < 0.15) {
           this._sleeping = true; this.setMood('sleepy'); this._setAnim('sleep'); this._addZzz();
+          this._dreamT = setTimeout(() => this._dreamLoop(), rand(5000, 8000));
           this.say(pick(['*falls asleep hoping you\'ll follow*', 'zzz... *leading by example*']));
         }
       }
@@ -1332,6 +1345,7 @@ const _CHITTI_SOUNDS = {
     // ─── Library & Keras reactions ───
     reactToCode(text) {
       if (!text) return;
+      this._learnFromCode(text);
       const t = text.toLowerCase();
       // ─── Keras-specific (she works on the Keras team!) ───
       if (t.includes('model.fit') || t.includes('.fit(')) {
@@ -1426,23 +1440,25 @@ const _CHITTI_SOUNDS = {
       if (r.top < -50 || r.top > window.innerHeight || r.left < -50 || r.left > window.innerWidth) return;
       this.say(pick(['*walks across your code*', 'HELLO I AM HERE', 'This is MY keyboard now', '*struts across code*']));
       sfx.chirp(); this.setMood('annoyed');
-      this._setAnim('walk');
       // walk from left to right across the cell, clamped to viewport
       const startX = clamp(r.left - 30, 0, window.innerWidth - 80);
       const endX = clamp(r.left + r.width + 30, 0, window.innerWidth - 80);
       const ty = clamp(r.top + r.height / 2 - 30, 10, window.innerHeight - 80);
-      this.x = startX; this.y = ty; this._pos();
-      this._moveTo(endX, ty, 0.8, () => {
-        this._setAnim('idle'); this.say(pick(['*sits down defiantly*', 'Acknowledge me.', '*waits*']));
-        // wait for click to move off
-        const clickOff = () => {
-          this.el.removeEventListener('click', clickOff);
-          this.say(pick(['FINE.', '*hops off smugly*', '*satisfied strut*'])); sfx.chirp2();
-          this.setMood('content'); this._walkRandom();
-        };
-        this.el.addEventListener('click', clickOff);
-        // auto-move after 8s if not clicked
-        setTimeout(() => { this.el.removeEventListener('click', clickOff); this.setMood('content'); this._walkRandom(); }, 8000);
+      // waddle to cell's left edge first (no teleporting!)
+      this._waddleTo(startX, ty, () => {
+        this._setAnim('walk');
+        this._moveTo(endX, ty, 0.8, () => {
+          this._setAnim('idle'); this.say(pick(['*sits down defiantly*', 'Acknowledge me.', '*waits*']));
+          // wait for click to move off
+          const clickOff = () => {
+            this.el.removeEventListener('click', clickOff);
+            this.say(pick(['FINE.', '*hops off smugly*', '*satisfied strut*'])); sfx.chirp2();
+            this.setMood('content'); this._walkRandom();
+          };
+          this.el.addEventListener('click', clickOff);
+          // auto-move after 8s if not clicked
+          setTimeout(() => { this.el.removeEventListener('click', clickOff); this.setMood('content'); this._walkRandom(); }, 8000);
+        });
       });
     }
 
@@ -1544,7 +1560,7 @@ const _CHITTI_SOUNDS = {
     say(text) { this.bubble.textContent = text; this.bubble.classList.add('show'); clearTimeout(this._sayT); this._sayT = setTimeout(() => this.bubble.classList.remove('show'), C.speechMs); }
     _particle(x, y, e) { const p = document.createElement('div'); p.className = 'mango-particle'; p.textContent = e; p.style.left = x + 'px'; p.style.top = y + 'px'; p.style.fontSize = rand(14, 24) + 'px'; document.body.appendChild(p); setTimeout(() => p.remove(), 1200); }
     _addZzz() { for (let i = 0; i < 3; i++) { const z = document.createElement('div'); z.className = 'mango-zzz'; z.textContent = 'z'; this.el.appendChild(z); } }
-    _rmZzz() { this.el.querySelectorAll('.mango-zzz').forEach(z => z.remove()); }
+    _rmZzz() { this.el.querySelectorAll('.mango-zzz').forEach(z => z.remove()); clearTimeout(this._dreamT); }
     _blinkLoop() {
       const go = () => {
         if (this._dead || this._sleeping) { this._blkT = setTimeout(go, 3000); return; }
@@ -1555,14 +1571,137 @@ const _CHITTI_SOUNDS = {
       }; this._blkT = setTimeout(go, rand(800, 2500));
     }
     _moodDecay() { this._mdI = setInterval(() => { if (this.mood === 'happy' || this.mood === 'excited') this.setMood('content'); }, 12000); }
+    // ─── Startle Reflex (jumpy after long silence) ───
+    _startleListener() {
+      const onActivity = () => {
+        const idle = Date.now() - this._lastActivity;
+        this._lastActivity = Date.now();
+        if (idle > 30000 && !this._sleeping && !this._dead && !this._offScreen && !this._dragging) {
+          this._exprStartled(); this._setAnim('bob');
+          this.say(pick(['*You SCARED me!*', '*STARTLED CHIRP!*', '*jumps!* WHO?!', '*fluffs up in alarm*']));
+          sfx.chirp();
+          setTimeout(() => { this._setAnim('idle'); this._eyesNormal(); this._beakClose(); }, 1200);
+        }
+      };
+      this._startleClick = onActivity;
+      this._startleKey = onActivity;
+      document.addEventListener('click', this._startleClick);
+      document.addEventListener('keydown', this._startleKey);
+    }
+
+    // ─── Dream Bubbles (thought clouds during sleep) ───
+    _dreamLoop() {
+      if (this._dead || !this._sleeping) { this._dreamT = null; return; }
+      const dreams = [
+        ['🌻', '🌰'], ['💻', '🐍'], ['🎵', '🎹'], ['☁️', '✨'], ['🍗', '😋'],
+        ['🐦', '💕'], ['📉', '🎉'], ['🌙', '⭐'], ['🧠', '🔬'], ['🪶', '🌈'],
+      ];
+      const dream = pick(dreams);
+      const cloud = document.createElement('div');
+      cloud.className = 'mango-dream';
+      cloud.textContent = dream.join(' ');
+      cloud.style.left = (this.x + 50) + 'px';
+      cloud.style.top = (this.y - 20) + 'px';
+      document.body.appendChild(cloud);
+      setTimeout(() => cloud.remove(), 4000);
+      this._dreamT = setTimeout(() => this._dreamLoop(), rand(5000, 8000));
+    }
+
+    // ─── Bedtime Stories (after 11 PM, once per session) ───
+    _bedtimeStory() {
+      if (this._bedtimeStoryDone) return;
+      this._bedtimeStoryDone = true;
+      const stories = [
+        ['Once upon a time...', 'a tiny bird found a golden seed.', 'She shared it with her human. The end. 🌻'],
+        ['In a faraway Colab...', 'a cockatiel debugged the impossible bug.', 'Everyone cheered. She got extra seeds. 🐛✨'],
+        ['A little bird dreamed...', 'of a world made entirely of millet.', 'She woke up happy anyway. 🌾💛'],
+        ['Once, a bird and a coder...', 'stayed up way too late together.', 'The bird said: "Sleep now." And they did. 🌙'],
+        ['There was a neural network...', 'that learned to love its trainer.', 'Its loss was zero. Its heart was full. 📉💕'],
+      ];
+      const story = pick(stories);
+      this._exprSleep(); this.setMood('sleepy');
+      this.say(story[0]);
+      setTimeout(() => this.say(story[1]), 3500);
+      setTimeout(() => { this.say(story[2]); sfx.chirp3(); }, 7000);
+    }
+
+    // ─── Photo Pose (screenshot key reaction) ───
+    _screenshotListener() {
+      this._ssHandler = (e) => {
+        if (this._dead || this._sleeping || this._offScreen) return;
+        const isScreenshot = (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) || e.key === 'PrintScreen';
+        if (!isScreenshot) return;
+        this._setAnim('wing-stretch'); this._eyesHappy();
+        this.say(pick(['*Get my good side!*', '*POSE!*', '*strikes a pose!*', '✨ Say cheese! ✨', '*model mode activated*']));
+        sfx.chirp();
+        for (let i = 0; i < 4; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['✨', '📸', '⭐', '💫'])), i * 150);
+        setTimeout(() => { this._setAnim('idle'); this._eyesNormal(); }, 2500);
+      };
+      document.addEventListener('keydown', this._ssHandler);
+    }
+
+    // ─── Typing Speed Reactions ───
+    _typingSpeedTracker() {
+      this._keyTimes = [];
+      this._lastKeyTime = 0;
+      this._typingHandler = () => {
+        if (this._dead || this._sleeping || this._offScreen) return;
+        const now = Date.now();
+        // slow typing detection (5s+ gap between keys)
+        if (this._lastKeyTime && (now - this._lastKeyTime) > 5000 && (now - (this._lastTypingReact || 0)) > 30000) {
+          this._lastTypingReact = now;
+          if (Math.random() < 0.3) {
+            this.say(pick(['*patient chirp*', '*waits supportively*', 'Take your time~ 🧡', '*gentle encouragement*']));
+          }
+        }
+        this._lastKeyTime = now;
+        // fast typing burst detection (8+ keys in 2s)
+        this._keyTimes.push(now);
+        this._keyTimes = this._keyTimes.filter(t => now - t < 2000);
+        if (this._keyTimes.length >= 8 && (now - (this._lastTypingReact || 0)) > 20000) {
+          this._lastTypingReact = now;
+          this._eyesWide();
+          this.say(pick(['*watches in awe*', 'SO FAST!! 🤯', '*impressed chirping*', 'Your fingers are FLYING!']));
+          setTimeout(() => this._eyesNormal(), 2000);
+        }
+      };
+      document.addEventListener('keydown', this._typingHandler);
+    }
+
+    // ─── Learning Code Variables ───
+    _learnFromCode(text) {
+      if (!text) return;
+      // pick up variable assignments and function definitions
+      const varMatch = text.match(/(?:^|\n)\s*([a-zA-Z_]\w{2,})\s*=/gm);
+      const fnMatch = text.match(/(?:def|function)\s+([a-zA-Z_]\w{2,})/g);
+      const names = [];
+      if (varMatch) varMatch.forEach(m => { const n = m.replace(/.*?([a-zA-Z_]\w+)\s*=.*/, '$1').trim(); if (n && n.length > 2 && n.length < 20 && !['import', 'from', 'class', 'self', 'True', 'False', 'None', 'print', 'return'].includes(n)) names.push(n); });
+      if (fnMatch) fnMatch.forEach(m => { const n = m.replace(/(?:def|function)\s+/, ''); if (n && n.length > 2) names.push(n); });
+      names.forEach(n => {
+        if (!this._learnedVars.includes(n)) {
+          this._learnedVars.push(n);
+          if (this._learnedVars.length > 5) this._learnedVars.shift();
+        }
+      });
+    }
+    _commentOnVar() {
+      if (!this._learnedVars.length) return;
+      const v = pick(this._learnedVars);
+      this.say(pick([`How's ${v} doing?`, `*peeks at ${v}*`, `I like the name "${v}" 🧡`, `Is ${v} working well?`, `*chirps about ${v}*`]));
+    }
+
     destroy() {
       this._dead = true;
       clearTimeout(this._tmr); clearTimeout(this._sayT); clearTimeout(this._blkT); clearTimeout(this._exprT);
       clearInterval(this._mdI); clearInterval(this._cursorStillI);
-      clearTimeout(this._trainTmr); clearTimeout(this._flyBackT); clearTimeout(this._wanderT);
+      clearTimeout(this._trainTmr); clearTimeout(this._flyBackT); clearTimeout(this._wanderT); clearTimeout(this._dreamT);
       cancelAnimationFrame(this._raf);
       if (this._napWakeCheck) { document.removeEventListener('mousemove', this._napWakeCheck); this._napWakeCheck = null; }
       if (this._resizeHandler) { window.removeEventListener('resize', this._resizeHandler); }
+      if (this._startleClick) document.removeEventListener('click', this._startleClick);
+      if (this._startleKey) document.removeEventListener('keydown', this._startleKey);
+      if (this._ssHandler) document.removeEventListener('keydown', this._ssHandler);
+      if (this._typingHandler) document.removeEventListener('keydown', this._typingHandler);
       this.el.remove();
     }
   }
