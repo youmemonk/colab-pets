@@ -7,7 +7,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/standalone/chitti.js"
-CDN_URL="https://cdn.jsdelivr.net/gh/youmemonk/colab-pets@main/standalone/chitti.js"
+CDN_URL="https://cdn.jsdelivr.net/gh/youmemonk/colab-pets@chitti-loader/standalone/chitti.js"
 
 echo "Building standalone Chitti..."
 
