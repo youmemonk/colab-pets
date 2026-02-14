@@ -2239,13 +2239,15 @@
       let bugX = rand(50, window.innerWidth - 50), bugY = rand(50, window.innerHeight - 100);
       bug.style.left = bugX + 'px'; bug.style.top = bugY + 'px';
       document.body.appendChild(bug);
-      let chaseCount = 0;
+      let chaseCount = 0, caught = false;
+      // safety: remove bug after 15s no matter what
+      const safetyT = setTimeout(() => { if (!caught && bug.parentNode) bug.remove(); }, 15000);
       const chaseBug = () => {
-        if (this._dead) { bug.remove(); return; }
+        if (this._dead || this._dragging || this._offScreen) { bug.remove(); clearTimeout(safetyT); return; }
         this._setAnim('chase');
         this.say(chaseCount === 0 ? 'GET IT!' : 'STAY STILL!');
         this._moveTo(clamp(bugX - 30, 10, window.innerWidth - 80), clamp(bugY - 60, 10, window.innerHeight - 80), C.speed.run, () => {
-          if (this._dead) { bug.remove(); return; }
+          if (this._dead || this._dragging || this._offScreen) { bug.remove(); clearTimeout(safetyT); return; }
           chaseCount++;
           if (chaseCount < 3) {
             this.say(pick(['MISSED!', 'Come BACK here!', 'ARGH!']));
@@ -2254,6 +2256,7 @@
             setTimeout(() => chaseBug(), 500);
           } else {
             // catch!
+            caught = true; clearTimeout(safetyT);
             this._setAnim('peck'); sfx.crunch();
             bug.remove();
             for (let i = 0; i < 4; i++) this._particle(bugX + rand(-10, 10), bugY + rand(-10, 10), pick(['✨', '💥', '⭐']));
