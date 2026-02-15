@@ -2,6 +2,8 @@
 
 A tiny cockatiel that hangs out on your Google Colab notebooks. She chirps, sings, does tricks, and keeps you company while you code.
 
+![Chitti Demo](demo.gif)
+
 ## Quick Start (No Extension Needed)
 
 ### Option A: Bookmarklet (Recommended)
