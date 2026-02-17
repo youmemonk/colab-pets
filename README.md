@@ -1,6 +1,6 @@
-# Chitti — Cockatiel Companion for Google Colab
+# Chitti — Cockatiel Companion for Google Colab & GitHub
 
-A tiny cockatiel that hangs out on your Google Colab notebooks. She chirps, sings, does tricks, and keeps you company while you code.
+A tiny cockatiel that hangs out on your Google Colab notebooks and GitHub pages. She chirps, sings, does tricks, and keeps you company while you code.
 
 ![Chitti Demo](demo.gif)
 
@@ -10,7 +10,7 @@ A tiny cockatiel that hangs out on your Google Colab notebooks. She chirps, sing
 
 1. Visit the **[Chitti Setup Page](https://youmemonk.github.io/colab-pets/standalone/chitti-loader.html)**
 2. Drag the **"Chitti"** button to your bookmark bar
-3. Open any Colab notebook and click the bookmark — done!
+3. Open any Colab notebook or GitHub page and click the bookmark — done!
 
 ### Option B: Colab Cell
 
@@ -19,7 +19,7 @@ Paste this into a code cell at the top of your notebook and run it (Shift+Enter)
 ```javascript
 %%javascript
 // Summon Chitti!
-fetch('https://cdn.jsdelivr.net/gh/youmemonk/colab-pets@chitti-loader/standalone/chitti.js')
+fetch('https://raw.githubusercontent.com/youmemonk/colab-pets/main/standalone/chitti.js')
   .then(r => r.text())
   .then(t => document.head.appendChild(
     Object.assign(document.createElement('script'), { textContent: t })
