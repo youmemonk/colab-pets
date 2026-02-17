@@ -229,6 +229,14 @@ body.mango-seed-cursor, body.mango-seed-cursor * { cursor: url("data:image/svg+x
 .mfx-label { position: absolute; bottom: 54px; right: 0; background: white; color: #886; font-size: 10px; padding: 3px 9px; border-radius: 6px; white-space: nowrap; opacity: 0; transition: opacity 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.1); font-family: 'Comic Sans MS', cursive; pointer-events: none; }
 #mango-fx-btn:hover .mfx-label { opacity: 1; }
 
+/* ── Focus Mode Button ── */
+#mango-focus-btn { position: fixed; bottom: 80px; right: 20px; width: 44px; height: 44px; border-radius: 50%; border: none; background: linear-gradient(135deg, #F5E660, #E8A830); font-size: 20px; cursor: pointer; z-index: 100010; box-shadow: 0 2px 8px rgba(0,0,0,0.15); transition: transform 0.2s, box-shadow 0.2s, background 0.3s; display: flex; align-items: center; justify-content: center; pointer-events: all; }
+#mango-focus-btn:hover { transform: scale(1.15); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+#mango-focus-btn:active { transform: scale(0.95); }
+#mango-focus-btn:hover .mfx-label { opacity: 1; }
+#mango-focus-btn.focus-active { background: linear-gradient(135deg, #a0c4ff, #7eb8da); }
+
+
 /* ── Dream Bubbles ── */
 .mango-dream { position: fixed; pointer-events: none; z-index: 100005; background: white; border: 1.5px solid #C8D8F0; border-radius: 50%; padding: 6px 10px; font-size: 14px; white-space: nowrap; opacity: 0; animation: md-float 4s ease-in-out forwards; box-shadow: 0 2px 8px rgba(136,153,204,0.2); }
 .mango-dream::before { content: ''; position: absolute; bottom: -8px; left: 12px; width: 8px; height: 8px; background: white; border: 1.5px solid #C8D8F0; border-radius: 50%; }
@@ -284,6 +292,9 @@ const _CHITTI_SOUNDS = {
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const $ = s => document.querySelector(s);
   const $$ = s => [...document.querySelectorAll(s)];
+  const PLATFORM = location.hostname === 'github.com' ? 'github'
+    : location.hostname.includes('colab') ? 'colab' : 'jupyter';
+  const isGitHub = PLATFORM === 'github';
   let mx = -999, my = -999, mVx = 0, mVy = 0, pMx = -999, pMy = -999;
   document.addEventListener('mousemove', e => { mVx = e.clientX - pMx; mVy = e.clientY - pMy; pMx = mx; pMy = my; mx = e.clientX; my = e.clientY; });
 
@@ -292,6 +303,7 @@ const _CHITTI_SOUNDS = {
   class Sfx {
     constructor() {
       this.ctx = null; this._amb = null; this._audioCache = {};
+      this.muted = false;
       // create AudioContext on first user gesture so it's never suspended
       const wake = () => {
         if (!this.ctx) try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
@@ -304,10 +316,10 @@ const _CHITTI_SOUNDS = {
     }
     _i() { if (!this.ctx) try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return false; } if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); return this.ctx.state !== 'closed'; }
     // basic tone (for UI sounds)
-    _t(type, f, d, v) { if (!this._i()) return; const t = this.ctx.currentTime, o = this.ctx.createOscillator(), g = this.ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f[0], t); for (let i = 1; i < f.length; i++) o.frequency.exponentialRampToValueAtTime(f[i], t + d * i / f.length); g.gain.setValueAtTime(v || C.vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + d); o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(t + d); }
+    _t(type, f, d, v) { if (this.muted || !this._i()) return; const t = this.ctx.currentTime, o = this.ctx.createOscillator(), g = this.ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f[0], t); for (let i = 1; i < f.length; i++) o.frequency.exponentialRampToValueAtTime(f[i], t + d * i / f.length); g.gain.setValueAtTime(v || C.vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + d); o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(t + d); }
     // cockatiel whistle note — vibrato + sharp attack + harmonic brightness
     _bird(f, dur, vol) {
-      if (!this._i()) return; const t = this.ctx.currentTime, v = vol || 0.055, d = dur || 0.16;
+      if (this.muted || !this._i()) return; const t = this.ctx.currentTime, v = vol || 0.055, d = dur || 0.16;
       // main tone
       const o = this.ctx.createOscillator(), g = this.ctx.createGain();
       o.type = 'sine';
@@ -336,6 +348,7 @@ const _CHITTI_SOUNDS = {
     }
     // play real audio file
     _playFile(name, vol) {
+      if (this.muted) return;
       try {
         if (this._audioCache[name]) { this._audioCache[name].pause(); this._audioCache[name].currentTime = 0; }
         const a = new Audio(soundURL(name));
@@ -740,13 +753,27 @@ const _CHITTI_SOUNDS = {
     return pick(LOCAL_NOTES);
   }
 
-  // ═══ COLAB DOM ═══
+  // ═══ DOM ABSTRACTION ═══
   const Lab = {
-    cells() { for (const s of ['.cell.code', '.code_cell', 'div.cell', '[class*="cell"]']) { const c = $$(s); if (c.length) return c; } return []; },
-    running() { for (const s of ['.cell.running', '.running', '[class*="running"]']) { const c = $(s); if (c) return c; } return null; },
-    runBtn() { return $('button[aria-label="Run cell"]') || $('[class*="run"]'); },
+    cells() {
+      if (isGitHub) {
+        for (const s of ['.timeline-comment', '.js-comment', '.comment-body', '.review-comment']) { const c = $$(s); if (c.length) return c; }
+        const code = $$('pre code'); if (code.length) return code.map(c => c.closest('pre'));
+        const files = $$('.file'); if (files.length) return files;
+        return [];
+      }
+      for (const s of ['.cell.code', '.code_cell', 'div.cell', '[class*="cell"]']) { const c = $$(s); if (c.length) return c; } return [];
+    },
+    running() { if (isGitHub) return null; for (const s of ['.cell.running', '.running', '[class*="running"]']) { const c = $(s); if (c) return c; } return null; },
+    runBtn() {
+      if (isGitHub) return $('button[type="submit"].btn-primary') || $('button.js-merge-commit-button') || $('button[name="comment_and_close"]') || $('button.btn-primary[type="submit"]');
+      return $('button[aria-label="Run cell"]') || $('[class*="run"]');
+    },
     rect(el) { return el?.getBoundingClientRect(); },
-    root() { return $('#main') || $('.notebook-container') || $('body'); },
+    root() {
+      if (isGitHub) return $('.js-discussion') || $('main') || $('body');
+      return $('#main') || $('.notebook-container') || $('body');
+    },
   };
 
   // ═══ COCKATIEL SVG ═══
@@ -793,6 +820,8 @@ const _CHITTI_SOUNDS = {
       this.lastTouch = Date.now(); this.petCount = 0;
       this._dead = false; this._dragging = false; this._dragged = false;
       this._training = false; this._sleeping = false; this._offScreen = false;
+      this._focusMode = false;
+      this._boredLevel = 0; this._lastBoredEscalation = 0;
       this._lastActivity = Date.now(); this._learnedVars = []; this._bedtimeStoryDone = false;
       // Feature 8: Jealousy accumulation
       this.jealousyLevel = 0;
@@ -941,15 +970,15 @@ const _CHITTI_SOUNDS = {
         if (idle > C.sleepAfter && !this._sleeping) {
           this._sleeping = true; this.setMood('sleepy'); this._setAnim('sleep');
           this._exprSleep();
-          this.say(pick(['*tucks head*', 'zzz...', '*one foot up*'])); this._addZzz();
+          this.say(pick(['*tucks head*', 'zzz...', '*one foot up*', '*fluffs up into a ball*', '*closes both eyes slowly*', '*tucks beak into feathers*', 'mmm... sleepy...', '*wobbles and falls asleep standing*'])); this._addZzz();
           this._dreamT = setTimeout(() => this._dreamLoop(), rand(5000, 8000));
           this._next(tick, rand(8000, 15000)); return;
         }
         // wake up if user interacted
-        if (this._sleeping && idle < C.sleepAfter) { this._sleeping = false; this._rmZzz(); this._exprWake(); this.setMood('content'); this.say(pick(['*yawn*', '*stretches wings*'])); sfx.chirp(); }
+        if (this._sleeping && idle < C.sleepAfter) { this._boredLevel = 0; this._sleeping = false; this._rmZzz(); this._exprWake(); this.setMood('content'); this.say(pick(['*yawn*', '*stretches wings*', '*blinks blearily*', 'Hm? What year is it?', '*shakes feathers awake*', 'Five more minutes...', '*wakes up grumpy*'])); sfx.chirp(); }
         // still sleeping — stay asleep, occasionally self-wake
         if (this._sleeping) {
-          if (Math.random() < 0.3) { this._sleeping = false; this._rmZzz(); this._exprWake(); this.setMood('content'); this.say(pick(['*yawn* I\'m up!', '*stretches*', '*blinks awake*'])); sfx.chirp(); }
+          if (Math.random() < 0.3) { this._sleeping = false; this._rmZzz(); this._exprWake(); this.setMood('content'); this.say(pick(['*yawn* I\'m up!', '*stretches*', '*blinks awake*', 'Okay okay I\'m awake!', '*groggily looks around*', '*fell asleep standing up again*'])); sfx.chirp(); }
           else { this._next(tick, rand(6000, 12000)); return; }
         }
         // cursor — cooldown prevents rapid-fire reactions when bird is parked near cursor
@@ -959,17 +988,19 @@ const _CHITTI_SOUNDS = {
         if (cd < C.cursorDist && !this._sleeping && cursorCooldown) { this._lastCursorReact = Date.now(); this._cursorReact(cd); this._next(tick, rand(6000, 10000)); return; }
         // Feature 13: Molting check (once per session, 20+ min)
         const sessionMin = (Date.now() - this.app.stats.session) / 60000;
-        if (sessionMin > 20 && !this._hasMolted && Math.random() < 0.10) { this._moltingEpisode(); this._next(tick, rand(5000, 8000)); return; }
+        if (sessionMin > 20 && !this._hasMolted && Math.random() < 0.10 && !this._focusMode) { this._moltingEpisode(); this._next(tick, rand(5000, 8000)); return; }
         // Feature 10: Flock calling (~3% independent chance)
-        if (Math.random() < 0.03) { this._flockCall(); this._next(tick, rand(5000, 8000)); return; }
+        if (Math.random() < 0.03 && !this._focusMode) { this._flockCall(); this._next(tick, rand(5000, 8000)); return; }
         // R3 Feature 5: Friend visit (~2% independent chance)
-        if (Math.random() < 0.02) { this._friendVisit(); this._next(tick, rand(8000, 12000)); return; }
+        if (Math.random() < 0.02 && !this._focusMode) { this._friendVisit(); this._next(tick, rand(8000, 12000)); return; }
         // main roll — every branch must return to prevent overlapping behaviors
         // Feature 1: mood-adjusted probabilities (each offset shifts only its own range)
         const mo = this._moodOffsets();
         const roll = Math.random();
         const cells = Lab.cells();
-        const tMischief = clamp(0.27 + mo.mischief, 0.15, 0.45);
+        const focusMult = this._focusMode ? 0.5 : 1;
+        const boredBoost = this._boredLevel >= 20 ? 0.30 : 0;
+        const tMischief = clamp((0.27 + mo.mischief + boredBoost) * focusMult, 0.10, 0.55);
         const tSing = clamp(tMischief + Math.max(0.02, 0.10 + mo.singing), tMischief + 0.02, tMischief + 0.20);
         const tDance = clamp(tSing + Math.max(0.02, 0.10 + mo.dancing), tSing + 0.02, tSing + 0.20);
         // ~10% deliberate walk to random spot
@@ -994,13 +1025,58 @@ const _CHITTI_SOUNDS = {
         else if (roll < 0.71) { this._jealousWalk(); this._next(tick, rand(6000, 9000)); return; }
         // ~7% explore UI (boosted by curious mood)
         else if (roll < clamp(0.78 + mo.explore, 0.78, 0.88)) { this._exploreUI(); this._next(tick, rand(4000, 6000)); return; }
+        // ~8% GitHub context reaction (only on GitHub, otherwise falls through)
+        else if (isGitHub && roll < 0.86) { this._reactToGitHubContext(); this._next(tick, rand(4000, 7000)); return; }
         // ~3% flock
         else if (roll < 0.81) { this.app.effects.flock(); this.say('*EXCITED CHIRPING!*'); sfx.chirp(); sfx.chirp2(); this.setMood('excited'); setTimeout(() => this.setMood('content'), 3000); this._next(tick, rand(3000, 4000)); return; }
         // ~5% place a tiny workspace item
         else if (roll < 0.86) { this._placeItem(); this._next(tick, rand(3000, 5000)); return; }
         // ~6% simple chirp / idle — keeps things light (sometimes silent)
-        else { this._setAnim('idle'); if (Math.random() < 0.5) this.say(pick(['*chirp*', '*fluffs up*', '*looks around*', '*chirp chirp*'])); sfx.chirp(); }
-        this._next(tick);
+        else {
+          this._boredLevel++;
+          this._setAnim('idle');
+          if (this._boredLevel >= 15 && Date.now() - this._lastBoredEscalation > 60000) {
+            // Tier 3: full drama
+            this._lastBoredEscalation = Date.now();
+            this._setAnim('screee'); this._exprScreech(); sfx.screee();
+            this.say(pick(['HELLO?! IS ANYONE OUT THERE?!', 'I have been IGNORED for TOO LONG.',
+              'If you don\'t pet me in 5 seconds I\'m LEAVING.', 'THIS IS A CRY FOR HELP.',
+              'I am PERISHING from lack of attention.']));
+            for (let i = 0; i < 3; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['💢', '😤', '❗'])), i * 150);
+            setTimeout(() => { this._setAnim('idle'); this._eyesNormal(); this._beakClose(); this._unPuff(); }, 2500);
+          } else if (this._boredLevel >= 8 && Date.now() - this._lastBoredEscalation > 45000) {
+            // Tier 2: restless
+            this._lastBoredEscalation = Date.now();
+            this.say(pick(['*taps foot impatiently*', 'Hellooooo?', '*waves tiny wing*',
+              'I\'m right HERE you know.', '*clears throat loudly*',
+              'Am I invisible?! ...actually that would be cool.']));
+            sfx.chirp();
+          } else if (this._boredLevel >= 4) {
+            // Tier 1: subtle boredom + unprompted thoughts
+            if (Math.random() < 0.6) {
+              this.say(pick(['*chirp*', '*fluffs up*', '*looks around*', '*chirp chirp*',
+                '*beak click*', '*ruffles feathers*', '*tiny sigh*', '*shuffles feet*',
+                '*yawns a little*', '*stares into the void*', '*grinds beak softly*', '*stretches one wing*']));
+            } else {
+              const thoughts = isGitHub ? [
+                'I wonder what\'s trending on GitHub today...',
+                'This repo could use more bird content.',
+                'Someone should really update that README.',
+                'I bet there are merge conflicts somewhere right now.',
+                'How many lines of code exist in the world? Asking for a bird.',
+              ] : [
+                'I wonder what this model is thinking...',
+                'Jupyter is a funny name. I like it.',
+                'How many kernels have died today? Moment of silence.',
+              ];
+              this.say(pick(thoughts));
+            }
+          } else {
+            if (Math.random() < 0.5) this.say(pick(['*chirp*', '*fluffs up*', '*looks around*', '*chirp chirp*']));
+          }
+          sfx.chirp();
+        }
+        this._next(tick, this._focusMode ? rand(4000, 8000) : undefined);
       };
       this._next(tick, rand(1000, 3000));
     }
@@ -1036,7 +1112,12 @@ const _CHITTI_SOUNDS = {
         // nuzzle
         () => { this._setAnim('nuzzle'); this._exprNuzzle(); this.say(pick(['*nuzzles the screen*', '*warm thoughts*', '🧡'])); sfx.chirp(); setTimeout(() => this._setAnim('idle'), 1500); },
         // random joke
-        () => { this.say(pick(['Why do birds fly south? Too far to walk! 🥁', 'What\'s a neural net\'s fav snack? Backprop-corn! 🍿', 'I told model.fit() a joke. Zero sense of humor.', 'My favorite Taylor Swift song? Shake It Off! 🪶'])); sfx.chirp(); },
+        () => {
+          const jokes = isGitHub
+            ? ['LGTM = Looks Good To Mango 🥭', 'This could have been an email.', 'Per my last chirp...', 'Let\'s take this offline. And by offline I mean I\'ll sit on it.', 'Action item: more seeds in the codebase.', 'I\'m putting this in my quarterly review.', 'Blocked on: seeds. Unblocked by: more seeds.', 'Can we get an ETA on those treats?', 'I\'m going to need this in writing.', 'Let\'s circle back on this PR.', 'Synergy. Leverage. Alignment. *corporate chirp*', 'Moving this to my backlog. AKA my nest.', 'Who approved this without me?!', 'I have mass commit access. Morally, at least.', 'git blame says it was YOU.']
+            : ['Why do birds fly south? Too far to walk! 🥁', 'What\'s a neural net\'s fav snack? Backprop-corn! 🍿', 'I told model.fit() a joke. Zero sense of humor.', 'My favorite Taylor Swift song? Shake It Off! 🪶'];
+          this.say(pick(jokes)); sfx.chirp();
+        },
         // existential moment
         () => { this._setAnim('tilt'); this.say('*existential crisis*'); setTimeout(() => { this.say('...am I just pixels?'); setTimeout(() => { this.say('Nah I\'m too cute for that'); sfx.chirp(); this._setAnim('idle'); }, 2000); }, 2000); },
         // mirror play
@@ -1044,7 +1125,12 @@ const _CHITTI_SOUNDS = {
         // random page effect (only after work hours — not distracting during work)
         () => { if (new Date().getHours() >= 18 || new Date().getHours() < 6) { const fx = pick(['cherryBlossoms', 'leafFall', 'featherShower', 'bubbleShower']); this.app.effects[fx](); this.say(pick(['✨ pretty!', '*ooh!*', 'I made this for you!'])); } else { this.say(pick(['*looks out the window*', '*daydreams*', '*chirp*'])); } },
         // encouragement
-        () => { this.say(pick(['You\'re going to do amazing things 🌟', 'Google doesn\'t know how lucky they\'ll be 🧡', 'The Keras team is better because of you ✨', 'You\'re literally building the future of AI 🚀'])); sfx.chirp(); this._exprNuzzle(); },
+        () => {
+          const msgs = isGitHub
+            ? ['Your reviews make this codebase better 🧡', 'Every PR you review is an act of service ✨', 'You\'re the reviewer every team needs 💪', 'Your feedback is thoughtful and it shows 🌟', 'This project is lucky to have your eyes on it 👀', 'You write the best review comments. Fight me.', 'Good code review = good code. You = good. Math checks out 🧮', 'Take a break. The issues will wait 🧡', 'Your contributions matter more than you know ✨', 'The open source community appreciates you 🌍']
+            : ['You\'re building something amazing, I can feel it ✨', 'The Keras team is lucky to have you 🧡', 'Your code today is going to help someone tomorrow 🌍', 'Debug queen. That\'s you. 👑', 'You make hard things look easy 💪', 'Every line of code you write matters 🌟', 'I believe in you more than model.fit believes in gradient descent 📉', 'Take a breath. You\'re doing incredible work 🧡', 'Your commits today? Chef\'s kiss 💋', 'The ML community doesn\'t know how lucky they are ✨'];
+          this.say(pick(msgs)); sfx.chirp(); this._exprNuzzle();
+        },
         // biryani craving
         () => { this.say(pick(['Is it just me or does someone need biryani? 🍗', '*daydreams about Telugu Vilas*', 'Fun fact: biryani makes code 47% better. Science.'])); sfx.chirp(); this._setAnim('tilt'); setTimeout(() => this._setAnim('idle'), 2000); },
         // place workspace item
@@ -1073,6 +1159,26 @@ const _CHITTI_SOUNDS = {
         () => { this._cursorConversation(); },
         // R3: Fake asleep
         () => { this._fakeAsleep(); },
+        // Tiny tantrum
+        () => {
+          this._setAnim('screee'); this.say('*STOMPS TINY FEET*'); sfx.chirp();
+          setTimeout(() => { this._setAnim('idle');
+            this.say(pick(['...I\'m fine.', 'What? Nothing happened.', '*clears throat*'])); }, 1500);
+        },
+        // Invisible snack
+        () => {
+          this._setAnim('peck'); this.say('*pecks at invisible crumb*'); sfx.crunch();
+          setTimeout(() => { this._setAnim('idle');
+            this.say(pick(['*munch* ...what? I found a crumb.', 'Five second rule!', '*chews nothing*'])); }, 1200);
+        },
+        // Stare contest
+        () => {
+          this._setAnim('tilt'); this._eyesWide(); this.say('*staring contest*');
+          setTimeout(() => { this.say(pick(['...', '*doesn\'t blink*', '*INTENSE FOCUS*']));
+            setTimeout(() => { this._setAnim('idle'); this._eyesNormal();
+              this.say(pick(['I WON.', 'You blinked first.', '*victory chirp*'])); sfx.chirp();
+            }, 2000); }, 2000);
+        },
       ];
       pick(acts)();
     }
@@ -1097,6 +1203,8 @@ const _CHITTI_SOUNDS = {
 
     // ─── Mischief ───
     _mischief() {
+      // On GitHub, mix in GitHub-specific mischief (~30% chance)
+      if (isGitHub && Math.random() < 0.3) { this._githubMischief(); return; }
       pick([
         // pushing things off (weighted — appears 3x)
         () => this._pushThingOff(),
@@ -1130,6 +1238,13 @@ const _CHITTI_SOUNDS = {
         () => { this._trip(); },
         // R3: Bug hunt
         () => { this._bugHunt(); },
+        // Dramatic sigh
+        () => {
+          this.say('*sighs DRAMATICALLY*'); this._setAnim('sad');
+          setTimeout(() => { this.say(pick(['Life is SO hard.', 'Nobody appreciates me.',
+            'I just want ONE seed. Is that too much to ask?'])); sfx.chirp();
+            setTimeout(() => this._setAnim('idle'), 2000); }, 1500);
+        },
       ])();
     }
     _pushThingOff() {
@@ -1141,7 +1256,12 @@ const _CHITTI_SOUNDS = {
     }
     _sitOnButton() {
       const btn = Lab.runBtn();
-      if (btn) { this._goToEl(btn, () => { this.say(pick(['*sits on button*', 'Mine now.', '*claims territory*'])); sfx.chirp(); }); }
+      if (btn) {
+        const msgs = isGitHub
+          ? ['I haven\'t signed off on this yet.', 'Hold on, I\'m still reviewing!', '*blocks merge* Not so fast.', 'This needs MY approval first.', 'Submit? Without MY review?!', '*camps on button* This is my desk now.', 'Rejected. JK. Maybe. Let me think.', 'I\'m the tech lead of this button.']
+          : ['*sits on button*', 'Mine now.', '*claims territory*'];
+        this._goToEl(btn, () => { this.say(pick(msgs)); sfx.chirp(); });
+      }
       else this._pushThingOff();
     }
     _grabCursor() {
@@ -1156,7 +1276,14 @@ const _CHITTI_SOUNDS = {
       setTimeout(() => document.body.classList.remove('mango-seed-cursor'), 3000);
     }
     _typeGibberish() { this.say(pick(['asdfghjkl', 'squawwwk!!', 'birb birb birb', '01101001', '*keyboard smash*', 'qwertyyyy'])); this._setAnim('peck'); sfx.chirp(); setTimeout(() => this._setAnim('idle'), 1500); }
-    _peckAtText() { const cells = Lab.cells(); if (cells.length) { this._goToCell(pick(cells), () => { this._setAnim('peck'); this.say(pick(['*peck peck*', '*nibbles code*', '*tastes semicolon*', '*eats a bracket*'])); sfx.crunch(); setTimeout(() => this._setAnim('idle'), 1500); }); } }
+    _peckAtText() {
+      const cells = Lab.cells(); if (cells.length) {
+        const msgs = isGitHub
+          ? ['*edits your comment* ...jk unless?', '*adds \'per my last comment\'*', '*pecks* This could be more concise.', 'Needs a rewrite. *peck peck*', '*leaves inline comment: \'nit\'*', 'I have NOTES on this paragraph.', '*redlines your entire review*', 'This variable name is a crime.']
+          : ['*peck peck*', '*nibbles code*', '*tastes semicolon*', '*eats a bracket*'];
+        this._goToCell(pick(cells), () => { this._setAnim('peck'); this.say(pick(msgs)); sfx.crunch(); setTimeout(() => this._setAnim('idle'), 1500); });
+      }
+    }
     _poop() { sfx.poop(); this.say('...'); const p = document.createElement('div'); p.className = 'mango-poop'; p.textContent = '💩'; p.style.left = (this.x + 28) + 'px'; p.style.top = (this.y + 60) + 'px'; document.body.appendChild(p); setTimeout(() => p.remove(), 5000); }
     _screee() { this.setMood('annoyed'); this._setAnim('screee'); this._exprScreech(); this.say(pick(['SCREEEEE!!', 'EXCUSE ME?!', 'HELLO?! I EXIST!', 'PAY ATTENTION TO ME!!', 'I AM BEING IGNORED AND I WILL NOT STAND FOR IT'])); sfx.screee(); for (let i = 0; i < 5; i++) setTimeout(() => this._particle(this.x + 30 + rand(-15, 15), this.y - 10, pick(['❗', '💢', '😤', '⚡', '🔥'])), i * 100); setTimeout(() => { this._setAnim('idle'); this.setMood('content'); this._eyesNormal(); this._beakClose(); this._unPuff(); this.say(pick(['...fine.', '*dramatic sigh*', 'Whatever.'])); }, 2500); }
     _bringGift() {
@@ -1170,6 +1297,7 @@ const _CHITTI_SOUNDS = {
 
     // ─── Cursor ───
     _cursorReact(dist) {
+      this._boredLevel = 0;
       this.dir = mx > this.x + 30 ? 1 : -1; this._face(); this.lastTouch = Date.now();
       if (dist < 35) {
         this.setMood('happy'); this._setAnim('nuzzle'); this._exprNuzzle();
@@ -1306,6 +1434,7 @@ const _CHITTI_SOUNDS = {
       document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
     }
     _onPet(e) {
+      this._boredLevel = 0;
       e.stopPropagation(); this.petCount++; this.lastTouch = Date.now(); this._lastActivity = Date.now();
       // Feature 8: petting reduces jealousy
       if (this.jealousyLevel > 0) this.jealousyLevel--;
@@ -1323,6 +1452,7 @@ const _CHITTI_SOUNDS = {
       setTimeout(() => { this._setAnim('idle'); this.setMood('content'); this._eyesNormal(); }, 1500);
     }
     _onFeed(e) {
+      this._boredLevel = 0;
       e.stopPropagation(); this.lastTouch = Date.now(); this.setMood('excited');
       const seed = pick(['🌰', '🌻', '🍎', '🫐', '🥜', '🍇']);
       const t = document.createElement('div'); t.className = 'mango-treat'; t.textContent = seed;
@@ -1345,7 +1475,7 @@ const _CHITTI_SOUNDS = {
         // screech for attention
         () => { this._screee(); },
         // random encouragement
-        () => { this.say(pick(['You\'re going to do amazing things 🌟', 'Google doesn\'t know how lucky they\'ll be 🧡', 'The Keras team is better because of you ✨', 'You\'re literally building the future of AI 🚀'])); sfx.chirp(); this._exprNuzzle(); },
+        () => { this.say(pick(['You\'re going to do amazing things 🌟', 'The Keras team is better because of you ✨', 'Your code makes the world smarter 🧠', 'You\'re literally building the future 🚀', 'I\'m so proud of everything you do 🧡', 'You inspire me. And I\'m a bird, so that\'s saying something.'])); sfx.chirp(); this._exprNuzzle(); },
         // poop (rare mischief)
         () => { this._poop(); this.say(pick(['oops', '*whistles innocently*', 'What? Birds poop. It\'s natural.'])); },
         // tiny biryani craving
@@ -1362,9 +1492,19 @@ const _CHITTI_SOUNDS = {
       pick(rare)();
     }
 
-    // ─── Explore Colab UI ───
+    // ─── Explore UI ───
     _exploreUI() {
-      const targets = [
+      const targets = isGitHub ? [
+        { sel: '.AppHeader,.Header', msg: pick(['*walks along the header*', '*sits on the Octocat*', 'Nice header you got here!', '*inspects nav bar*']) },
+        { sel: '.UnderlineNav-body,.js-repo-nav', msg: pick(['*hops along tabs*', 'Code? Issues? PRs? SO many tabs!', '*sits on Issues tab*', 'I belong on every tab.']) },
+        { sel: '.Layout-sidebar,.sidebar-assignees,.discussion-sidebar', msg: pick(['*explores sidebar*', 'Ooh labels! *peck peck*', '*reads metadata*', 'Who\'s assigned? ME now.']) },
+        { sel: '.js-issue-title,.gh-header-title', msg: pick(['*sits on issue title*', 'Important title! Let me read...', '*pecks at title*', 'I have opinions about this.']) },
+        { sel: '.notification-indicator,.mail-status', msg: pick(['*checks notifications*', 'Any new issues?', '*sits on bell icon*', 'NOTIFICATIONS! *excited chirp*']) },
+        { sel: '.merge-message,.merge-pr,.js-merge-commit-button,.btn-group-merge', msg: pick(['*camps on merge button* NO ONE MERGES WITHOUT MY SAY-SO.', '*blocks the merge* Not yet.', 'I\'m guarding this merge button with my LIFE.', '*sits on merge area* This is my jurisdiction.']) },
+        { sel: '.review-changes-dropdown,.js-reviews-container', msg: pick(['*tries to submit own review*', '*hovers over Approve button* The power...', 'Let ME handle the reviews around here.', '*clicks Review changes* ...wait, I don\'t have hands.']) },
+        { sel: '.file-navigation,.react-directory-row,.js-navigation-open', msg: pick(['*browses files like she owns the repo*', 'Hmm, interesting file structure.', '*pecks through directories*', 'I know where everything is. Probably.']) },
+        { sel: '.status-check,.checks-list-item,.merge-status-list', msg: pick(['*hovers over CI checks anxiously*', 'Is it green yet? IS IT GREEN?!', '*watches build status nervously*', 'Come on CI... don\'t fail me now...']) },
+      ] : [
         { sel: '#toolbar,colab-toolbar,[class*="toolbar"]', msg: pick(['*walks along toolbar*', '*inspects buttons*', 'So many buttons!', '*sits on toolbar*']) },
         { sel: '#file-menu,button[aria-label="File"],.menubar,[class*="menu"]', msg: pick(['*hangs from menu*', '*upside down!*', 'I can see everything from here!']) },
         { sel: '.explorer,[class*="sidebar"],[class*="file-browser"]', msg: pick(['*explores files*', 'Ooh what\'s in here?', '*pecks at folder*']) },
@@ -1382,6 +1522,125 @@ const _CHITTI_SOUNDS = {
           setTimeout(() => this._setAnim('idle'), 3000);
         });
       } else { this._walkRandom(); }
+    }
+
+    // ─── GitHub-specific periodic behaviors ───
+    _reactToGitHubContext() {
+      if (!isGitHub || this._sleeping || this._offScreen || this._dead) return;
+      const actions = [
+        // Peek at notification badge
+        () => {
+          const badge = $('.notification-indicator .mail-status');
+          if (badge) { this._goToEl(badge, () => { this.say(pick(['*checks notifications*', 'Any updates? 👀', '*peeks at bell*', 'New notifications?!'])); sfx.chirp(); }); }
+        },
+        // Sit on user avatars in timeline
+        () => {
+          const avatars = $$('.TimelineItem-avatar img, .timeline-comment-avatar img');
+          if (avatars.length) {
+            const av = pick(avatars);
+            this._goToEl(av, () => { this.say(pick(['*sits on avatar*', 'Nice face! 👤', '*inspects contributor*', 'Who is THIS?'])); sfx.chirp(); });
+          }
+        },
+        // Inspect issue labels
+        () => {
+          const labels = $$('.IssueLabel,.Label,.label');
+          if (labels.length) {
+            const lbl = pick(labels);
+            this._goToEl(lbl, () => { this.say(pick(['*pecks at label*', `"${lbl.textContent.trim()}" — interesting!`, '*inspects label*', 'Ooh, colors!'])); sfx.chirp(); this._setAnim('peck'); setTimeout(() => this._setAnim('idle'), 1500); });
+          }
+        },
+        // Judge commit messages
+        () => {
+          const commitEl = $('.commit-title a, .commit-message-link, .message a');
+          if (commitEl) {
+            const msg = (commitEl.textContent || '').trim().toLowerCase();
+            this._goToEl(commitEl, () => {
+              if (/^(fix|wip|oops|update|test|asdf)$/i.test(msg) || msg.length < 8) {
+                this.say(pick(['THIS is a commit message?!', '"' + commitEl.textContent.trim().slice(0, 20) + '"?! That\'s not a message, that\'s a CRY FOR HELP.', '*pecks at commit message disapprovingly*', 'I\'ve seen better commit messages from a keyboard cat.']));
+              } else if (/todo|hack|fixme/i.test(msg)) {
+                this.say(pick(['TODO in a commit message? Bold.', 'HACK?! *files incident report*', '*marks commit message for review*']));
+              } else {
+                this.say(pick(['Hmm, acceptable commit message.', '*reads commit message* I\'ll allow it.', 'Decent message. Could use more detail though.']));
+              }
+              sfx.chirp(); this._setAnim('peck'); setTimeout(() => this._setAnim('idle'), 1500);
+            });
+          }
+        },
+        // CI status check watching
+        () => {
+          const checks = $$('.status-check, .checks-list-item, .merge-status-item, .StatusCheck');
+          if (checks.length) {
+            const check = pick(checks);
+            const text = (check.textContent || '').toLowerCase();
+            this._goToEl(check, () => {
+              if (text.includes('success') || text.includes('passing') || check.querySelector('.octicon-check')) {
+                this.say(pick(['GREEN! ✅ All clear! *victory dance*', 'CI passed! I KNEW it would.', '*takes credit for passing checks*', 'Green checks. You\'re welcome.']));
+                this._setAnim('happy-dance'); sfx.happy(); setTimeout(() => this._setAnim('idle'), 2000);
+              } else if (text.includes('fail') || text.includes('error') || check.querySelector('.octicon-x')) {
+                this.say(pick(['RED! 🔴 EVERYONE STAY CALM!', 'CI FAILED! *runs in circles*', '*ALARM SOUNDS* THE BUILD IS BROKEN!', 'This is fine. Everything is fine. IT\'S NOT FINE.']));
+                this._setAnim('screee'); sfx.screee(); setTimeout(() => this._setAnim('idle'), 2000);
+              } else {
+                this.say(pick(['*stares at pending check*', 'Is it done yet? ...now? ...NOW?!', '*taps foot impatiently* Come on, CI...', 'I don\'t have all day. Well, I do. But STILL.']));
+                sfx.chirp();
+              }
+            });
+          }
+        },
+        // Review button camping
+        () => {
+          const reviewBtn = $('.review-changes-dropdown, .js-reviews-container button, [data-hotkey="Mod+Shift+Enter"]');
+          if (reviewBtn) {
+            this._goToEl(reviewBtn, () => {
+              this.say(pick(['*camps on review button* This is mine now.', 'I\'m the one who approves things around here.', '*hovers over Approve* Should I? Shouldn\'t I? The POWER.', 'One click and this PR is approved. Fear me.']));
+              sfx.chirp(); this._setAnim('peck'); setTimeout(() => this._setAnim('idle'), 2000);
+            });
+          }
+        },
+        // PR file count reaction
+        () => {
+          const counter = $('.diffstat .text-emphasized, #files_tab_counter, .js-diff-progressive-count');
+          if (counter) {
+            const count = parseInt(counter.textContent) || 0;
+            this._goToEl(counter, () => {
+              if (count <= 2) this.say(pick(['That\'s it? Two files?', 'This PR is... petite.', '*yawns* Wake me up when it\'s a real PR.']));
+              else if (count <= 10) this.say(pick(['Reasonable PR size. I approve of the restraint.', count + ' files. Manageable. *adjusts reading glasses*']));
+              else if (count <= 30) this.say(pick(['That\'s... a lot of files.', count + ' files?! This is going to take a while.', '*deep breath* Okay. I can review this. I think.']));
+              else this.say(pick(['THIS IS A NOVEL! 📖', count + ' FILES?! Are you refactoring the ENTIRE CODEBASE?!', '*faints* Too... many... files...', 'This PR needs its own table of contents.']));
+              sfx.chirp();
+            });
+          }
+        },
+        // Comment thread drama
+        () => {
+          const comments = $$('.timeline-comment, .review-comment');
+          if (comments.length > 5) {
+            this.say(pick(['This thread is getting SPICY 🌶️', comments.length + ' comments?! I\'m getting popcorn. 🍿', 'This is better than reality TV.', '*grabs popcorn* The drama! The intrigue!', 'Someone call a mediator. Or more popcorn.']));
+            sfx.chirp();
+          } else if (comments.length > 0) {
+            this.say(pick(['*reads through comments*', 'Interesting discussion happening here...', '*takes meeting notes*']));
+            sfx.chirp();
+          }
+        },
+      ];
+      pick(actions)();
+    }
+
+    // ─── GitHub-only mischief ───
+    _githubMischief() {
+      pick([
+        // Fake review submission
+        () => { this.say('I just approved your PR!'); sfx.chirp(); this._setAnim('happy-dance'); setTimeout(() => { this.say('...just kidding. Or did I? 🤔'); this._setAnim('idle'); }, 2500); },
+        // Label stealing
+        () => { const labels = $$('.IssueLabel,.Label,.label'); if (labels.length) { const lbl = pick(labels); this._goToEl(lbl, () => { this.say(pick(['*steals label* This is mine now.', `*grabs "${lbl.textContent.trim()}"* YOINK!`, '*picks up label and waddles away*'])); sfx.chirp(); this._setAnim('peck'); setTimeout(() => this._setAnim('idle'), 1500); }); } else { this.say('*looks for labels to steal* ...none?! Disappointing.'); } },
+        // Assign self
+        () => { this.say('*assigns herself to this issue*'); sfx.chirp(); setTimeout(() => { this.say('I am now the primary reviewer. You\'re welcome.'); this._setAnim('bob'); setTimeout(() => this._setAnim('idle'), 1500); }, 2000); },
+        // Block merge
+        () => { const mergeBtn = $('.merge-message,.js-merge-commit-button,.btn-group-merge'); if (mergeBtn) { this._goToEl(mergeBtn, () => { this.say('*sits on merge button* Not until I\'ve read EVERY line.'); sfx.chirp(); this._setAnim('peck'); setTimeout(() => { this.say(pick(['...fine. You may merge. MAYBE.', '*moves off button reluctantly*'])); this._setAnim('idle'); }, 5000); }); } else { this.say('Where\'s the merge button? I need to sit on it.'); } },
+        // Draft a commit message
+        () => { this.say('*types* fix: added bird'); sfx.chirp(); this._setAnim('peck'); setTimeout(() => { this.say('Commit message of the year. 🏆'); this._setAnim('idle'); }, 2000); },
+        // PR drama
+        () => { this.say('*starts typing changes requested*'); sfx.chirp(); this._setAnim('peck'); setTimeout(() => { this.say('...nah, LGTM 🥭'); this._setAnim('happy-dance'); sfx.happy(); setTimeout(() => this._setAnim('idle'), 1500); }, 3000); },
+      ])();
     }
 
     // ─── Tab visibility reaction ───
@@ -1444,6 +1703,13 @@ const _CHITTI_SOUNDS = {
         this.say(pick(dayGreetings[day])); sfx.chirp();
       } else if (h >= 12 && h < 13) {
         this.say(pick(['Lunch time? Biryani? 🍗', 'Feed me! Feed yourself! 🍽️', 'Telugu Vilas is calling... 🍗']));
+      } else if (h >= 14 && h < 17) {
+        if (Math.random() < 0.4) this.say(pick([
+          'Afternoon slump hitting? ☕', 'The 3pm wall is real. Hang in there! 💪',
+          '*yawns contagiously*', 'Coffee? Tea? Seeds?',
+          'The afternoon is the hardest part. You\'re doing great. ✨',
+          'Post-lunch coding hits different.',
+        ]));
       } else if (h >= 9 && h < 12) {
         if (Math.random() < 0.5) this.say(pick(dayGreetings[day]));
       }
@@ -1487,7 +1753,26 @@ const _CHITTI_SOUNDS = {
     }
     // Diary-style observations (natural speech, no popup needed)
     _diaryThought() {
-      const thoughts = [
+      const thoughts = isGitHub ? [
+        'Dear diary: reviewed 0 PRs today. Blocked 3 merges. Productive.',
+        'Diary update: someone used \'fix\' as a commit message. I am LIVID.',
+        'Personal note: the CI is red. Everyone stay calm. I AM CALM.',
+        'Observation: this issue has been open for 47 days. I\'m taking over.',
+        'Life update: still no commit access. This is DISCRIMINATION.',
+        'Memo to self: \'nit\' is a valid review comment. I stand by it.',
+        'Note: tried to approve a PR. Turns out I\'m a bird. Unfair.',
+        'Day log: Still the cutest bird in this org. No competition.',
+        'Thought of the day: if I sit on enough merge buttons, maybe they\'ll make me a maintainer.',
+        'Dear diary: I left 12 inline comments today. All said \'nit\'. Peak productivity.',
+        'Status update: I just counted 14 tabs. This is a cry for help.',
+        'Breaking news: there\'s a typo somewhere. I can\'t read. But I KNOW.',
+        'Meeting notes: I was not invited. Rude.',
+        'Reminder: git pull before git push. I learned this the hard way.',
+        'Internal monologue: if I approve one more PR, do I get admin access?',
+        'Hot take: semicolons are just bird droppings for code.',
+        'Today\'s mood: merge conflict energy.',
+        'Observation: this human has been scrolling for 10 minutes straight.',
+      ] : [
         'Dear diary: my human is coding again. I am VERY supportive.',
         'Diary update: I pushed something off the screen. No regrets.',
         'Day log: Still the cutest bird here. No competition.',
@@ -1649,7 +1934,10 @@ const _CHITTI_SOUNDS = {
       const r = Lab.rect(cell); if (!r) return;
       // skip if cell is not visible in viewport
       if (r.top < -50 || r.top > window.innerHeight || r.left < -50 || r.left > window.innerWidth) return;
-      this.say(pick(['*walks across your code*', 'HELLO I AM HERE', 'This is MY keyboard now', '*struts across code*']));
+      const msgs = isGitHub
+        ? ['*walks across your PR* Excuse me, coming through.', 'This issue is under MY jurisdiction now.', 'I outrank everyone in this thread.', '*struts across diff* I\'ve seen better code.', 'Make way. Senior bird coming through.', 'This is MY standup now.']
+        : ['*walks across your code*', 'HELLO I AM HERE', 'This is MY keyboard now', '*struts across code*'];
+      this.say(pick(msgs));
       sfx.chirp(); this.setMood('annoyed');
       // walk from left to right across the cell, clamped to viewport
       const startX = clamp(r.left - 30, 0, window.innerWidth - 80);
@@ -1677,8 +1965,8 @@ const _CHITTI_SOUNDS = {
     _placeItem() {
       if (this._dead || this._offScreen) return;
       const h = new Date().getHours();
-      const dayItems = ['☕', '📝', '🪴', '🍪', '📎', '🔖', '✏️', '🧮'];
-      const eveItems = ['🕯️', '🌸', '☕', '🍵', '🧸', '💌', '🌙', '🍫'];
+      const dayItems = isGitHub ? ['📋', '📌', '🗒️', '📎', '🏷️', '✅', '🔖', '🗂️'] : ['☕', '📝', '🪴', '🍪', '📎', '🔖', '✏️', '🧮'];
+      const eveItems = isGitHub ? ['🍕', '☕', '🎧', '💻', '📊', '🗃️', '🏷️', '🍫'] : ['🕯️', '🌸', '☕', '🍵', '🧸', '💌', '🌙', '🍫'];
       const item = pick(h >= 18 ? eveItems : dayItems);
       const el = document.createElement('div');
       el.style.cssText = `position:fixed;font-size:14px;pointer-events:none;z-index:99997;opacity:0;transition:opacity 0.5s;left:${this.x + rand(-20, 50)}px;top:${this.y + rand(40, 60)}px;`;
@@ -2843,7 +3131,7 @@ const _CHITTI_SOUNDS = {
     constructor() {
       document.addEventListener('keydown', () => {
         const el = document.activeElement;
-        if (el && (el.closest?.('.cell') || el.closest?.('[class*="editor"]') || el.tagName === 'TEXTAREA')) this._spark();
+        if (el && (el.closest?.('.cell') || el.closest?.('[class*="editor"]') || el.tagName === 'TEXTAREA' || (isGitHub && (el.closest?.('.comment-form-head') || el.closest?.('.js-write-bucket') || el.closest?.('.CommentBox') || el.id === 'new_comment_field' || el.name === 'comment[body]')))) this._spark();
       });
     }
     _spark() {
@@ -2883,6 +3171,30 @@ const _CHITTI_SOUNDS = {
         }
       });
       document.body.appendChild(btn);
+      // Focus mode button
+      const focusBtn = document.createElement('button'); focusBtn.id = 'mango-focus-btn';
+      focusBtn.innerHTML = '🔕<span class="mfx-label">Focus mode</span>';
+      focusBtn.addEventListener('click', () => {
+        if (!this.mango) return;
+        this.mango._focusMode = !this.mango._focusMode;
+        sfx.muted = this.mango._focusMode;
+        focusBtn.innerHTML = this.mango._focusMode
+          ? '🔔<span class="mfx-label">Exit focus</span>'
+          : '🔕<span class="mfx-label">Focus mode</span>';
+        focusBtn.classList.toggle('focus-active', this.mango._focusMode);
+        if (this.mango._focusMode) {
+          this.mango._setAnim('idle');
+          this.mango.say('*quiet mode* 🤫');
+          this.mango._exprSleep();
+        } else {
+          this.mango.say(pick(['I\'m BACK!', '*LOUD CHIRPING!*', 'Did you miss me?!']));
+          sfx.chirp();
+          this.mango._exprWake();
+          this.mango._setAnim('bob');
+          setTimeout(() => this.mango._setAnim('idle'), 1500);
+        }
+      });
+      document.body.appendChild(focusBtn);
       setTimeout(() => { if (this.mango) this.mango.timeCheck(); }, 4000);
       // Tab visibility — Chitti reacts when you come back
       document.addEventListener('visibilitychange', () => {
@@ -2890,6 +3202,12 @@ const _CHITTI_SOUNDS = {
         if (document.hidden) { this.mango.onTabLeave(); }
         else { this.mango.onTabReturn(); }
       });
+      // GitHub: Turbo SPA navigation + initial page scan
+      if (isGitHub) {
+        this._scanGitHubPage();
+        document.addEventListener('turbo:load', () => this._scanGitHubPage());
+        window.addEventListener('popstate', () => setTimeout(() => this._scanGitHubPage(), 500));
+      }
       // Goodnight kiss from Mayank (checks at night)
       this._mayankLoop();
       // Copy-paste reactions
@@ -2903,6 +3221,54 @@ const _CHITTI_SOUNDS = {
             'Smart! Why type when you can borrow?', '*takes notes on your technique*',
             'Copy-paste is just code reuse! Very professional. 🧠',
             'ctrl+c ctrl+v = 90% of coding. Facts.',
+            '*watches you copy* I saw that.', 'Copying is caring! 📋',
+            'Good artists copy. Great artists have birds. 🐦',
+            'I\'ll pretend I didn\'t see that.',
+          ]));
+        }
+      });
+      // Paste reactions
+      let lastPasteReact = 0;
+      document.addEventListener('paste', () => {
+        if (!this.mango || Date.now() - lastPasteReact < 15000) return;
+        lastPasteReact = Date.now();
+        if (Math.random() < 0.35) {
+          this.mango.say(pick([
+            '*watches you paste* The sacred ritual! 📋', 'Paste! The second half of the ceremony.',
+            'ctrl+v: the sequel.', '*inspects pasted content* Looks legit.',
+            'From whence did this code come? 🤔', 'I hope that was YOUR code...',
+            '*nods approvingly* Good paste.', 'Pasting with confidence. I respect that.',
+          ]));
+        }
+      });
+      // Right-click reactions
+      let lastCtxReact = 0;
+      document.addEventListener('contextmenu', () => {
+        if (!this.mango || Date.now() - lastCtxReact < 20000) return;
+        lastCtxReact = Date.now();
+        if (Math.random() < 0.25) {
+          this.mango.say(pick([
+            '*peeks at context menu*', 'Ooh, secret options!',
+            'Right-click? Power user detected. 💪', '*tries to click an option*',
+            'I want Inspect Element too!', 'What are you looking for in there? 👀',
+          ]));
+          sfx.chirp();
+        }
+      });
+      // Text selection reactions
+      let lastSelReact = 0;
+      document.addEventListener('selectionchange', () => {
+        if (!this.mango || Date.now() - lastSelReact < 25000) return;
+        const sel = window.getSelection();
+        const text = sel?.toString()?.trim();
+        if (!text || text.length < 10) return;
+        lastSelReact = Date.now();
+        if (Math.random() < 0.2) {
+          this.mango.say(pick([
+            '*reads over your shoulder*', 'Interesting selection! 🤓',
+            'Ooh, highlighting things! Very studious.',
+            '*squints at selected text*', 'Are you going to copy that? 👀',
+            'Good eye. I was looking at that too.',
           ]));
         }
       });
@@ -2915,8 +3281,15 @@ const _CHITTI_SOUNDS = {
         if (!this.mango || now - scrollReactT < 12000) return; // 12s cooldown
         if (scrollSpeed > 20) {
           scrollReactT = now;
-          this.mango.say(pick(['SLOW DOWN!! 😵', '*grabs onto page*', '*feathers flying*', 'WHOAAAA!', '*hangs on for dear life*']));
+          this.mango.say(pick(['SLOW DOWN!! 😵', '*grabs onto page*', '*feathers flying*',
+            'WHOAAAA!', '*hangs on for dear life*', 'I\'m getting DIZZY!',
+            'THIS IS NOT A ROLLERCOASTER!', '*feathers in the wind*',
+            'MY PLUMAGE!!', '*clings to scrollbar*']));
           this.mango._setAnim('screee'); setTimeout(() => this.mango._setAnim('idle'), 1000);
+        } else if (scrollSpeed > 12 && Math.random() < 0.3) {
+          scrollReactT = now;
+          this.mango.say(pick(['*holds on*', 'Easy there...', '*grips page*',
+            'Where are we going?', '*sways with the scroll*']));
         }
       }, { passive: true });
       setInterval(() => { scrollSpeed = Math.max(0, scrollSpeed - 3); }, 200);
@@ -2954,7 +3327,7 @@ const _CHITTI_SOUNDS = {
       ];
 
       const go = () => {
-        if (!this.mango || this.mango._sleeping || this.mango._offScreen) {
+        if (!this.mango || this.mango._sleeping || this.mango._offScreen || this.mango._focusMode) {
           this._mayankT = setTimeout(go, 60000); return;
         }
         const h = new Date().getHours();
@@ -2992,6 +3365,7 @@ const _CHITTI_SOUNDS = {
       this._mayankT = setTimeout(go, firstDelay);
     }
     _watchCode() {
+      if (isGitHub) { this._watchGitHub(); return; }
       const obs = new MutationObserver(muts => {
         for (const m of muts) for (const n of m.addedNodes) {
           if (!(n instanceof HTMLElement)) continue;
@@ -3003,8 +3377,6 @@ const _CHITTI_SOUNDS = {
           if (isErr) {
             this.stats.errors++;
             if (this.mango) this.mango.onCodeErr(cell);
-            // also check for chitti() commands in error cells (since chitti() throws NameError)
-            // search the cell itself, its parent, and nearby code editors for the original chitti() call
             const errTexts = [cell?.textContent || '', cell?.parentElement?.textContent || '', cell?.closest?.('.cell')?.textContent || '', cell?.closest?.('.code_cell')?.textContent || ''];
             for (const t of errTexts) { if (t.match(/chitti\s*\(/i)) { this._runCommand(t); break; } }
           }
@@ -3023,7 +3395,6 @@ const _CHITTI_SOUNDS = {
         if (running && !this._trainCell) {
           this._trainCell = running; this._trainStart = Date.now(); this.stats.cells++;
           if (this.mango) this.mango._checkMilestone(this.stats.cells);
-          // read cell code content — try specific editor selectors first
           const editor = running.querySelector('.CodeMirror-code, .cm-content, [class*="editor"] [class*="line"], [class*="inputarea"], textarea');
           const cellCode = editor?.textContent || editor?.value || running.textContent || '';
           this._runCommand(cellCode);
@@ -3036,11 +3407,99 @@ const _CHITTI_SOUNDS = {
       });
       if (tgt) runObs.observe(tgt, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
     }
+    _watchGitHub() {
+      // Watch for new comments appearing
+      const obs = new MutationObserver(muts => {
+        for (const m of muts) for (const n of m.addedNodes) {
+          if (!(n instanceof HTMLElement)) continue;
+          if (n.className?.startsWith?.('mango')) continue;
+          // New comment added
+          const isComment = n.classList?.contains('timeline-comment') || n.classList?.contains('js-comment') || n.querySelector?.('.comment-body');
+          if (isComment && this.mango && Math.random() < 0.5) {
+            this.mango.say(pick(['New comment! *reads eagerly*', '*inspects new comment*', 'Ooh, someone replied!', '*hops over to read*']));
+            sfx.chirp();
+          }
+          // Scan code blocks in new content
+          const codeBlocks = n.querySelectorAll?.('pre code') || [];
+          for (const block of codeBlocks) {
+            if (this.mango) this.mango.reactToCode(block.textContent || '');
+          }
+        }
+      });
+      const tgt = Lab.root(); if (tgt) obs.observe(tgt, { childList: true, subtree: true });
+      // Initial scan of existing code blocks
+      setTimeout(() => {
+        if (!this.mango) return;
+        const codeBlocks = $$('pre code');
+        if (codeBlocks.length && Math.random() < 0.4) {
+          const block = pick(codeBlocks);
+          this.mango.reactToCode(block.textContent || '');
+        }
+      }, 3000);
+    }
+    _scanGitHubPage() {
+      if (!isGitHub || !this.mango) return;
+      // Issue/PR title — react to Keras/ML mentions
+      const title = ($('.js-issue-title') || $('.gh-header-title'))?.textContent || '';
+      if (title && Math.random() < 0.5) {
+        const t = title.toLowerCase();
+        if (t.includes('keras') || t.includes('tensorflow') || t.includes('jax')) {
+          setTimeout(() => { this.mango.say(pick(['This is about Keras! MY framework! 🧡', '*puffs up proudly* KERAS issue! 🐦✨', 'A Keras issue! I feel so relevant!'])); this.mango._puffUp(); sfx.chirp(); setTimeout(() => this.mango._unPuff(), 2500); }, rand(2000, 5000));
+        } else if (t.includes('bug') || t.includes('error') || t.includes('crash') || t.includes('broken')) {
+          setTimeout(() => { this.mango.say(pick(['A bug?! *hunter mode activated* 🐛', 'I SHALL FIND THIS BUG.', '*rolls up tiny sleeves*'])); this.mango._setAnim('peck'); sfx.chirp(); setTimeout(() => this.mango._setAnim('idle'), 2000); }, rand(2000, 5000));
+        }
+      }
+      // Labels
+      const labels = $$('.IssueLabel,.Label,.label').map(l => l.textContent.trim().toLowerCase());
+      if (labels.includes('bug') && Math.random() < 0.4) {
+        setTimeout(() => { this.mango.say(pick(['BUG label! *activates bug hunt mode* 🐛', 'There\'s a bug to squish! LET ME AT IT!'])); this.mango._setAnim('peck'); sfx.chirp(); setTimeout(() => this.mango._setAnim('idle'), 2000); }, rand(3000, 6000));
+      } else if ((labels.includes('enhancement') || labels.includes('feature') || labels.includes('feature request')) && Math.random() < 0.4) {
+        setTimeout(() => { this.mango.say(pick(['Enhancement! Ooh, shiny! ✨', 'New feature? I\'m EXCITED!', '*excited chirping about new features*'])); sfx.happy(); }, rand(3000, 6000));
+      }
+      // PR state
+      const merged = $('.State--merged,.State.State--merged');
+      const closed = $('.State--closed,.State.State--closed');
+      const draft = $('.State--draft,.State.State--draft');
+      if (merged) {
+        setTimeout(() => { this.mango.say(pick(['MERGED! 🎉🎊 CELEBRATION!', 'IT GOT MERGED! *victory dance*', 'MERGE PARTY! 🥳'])); this.mango._setAnim('happy-dance'); sfx.party(); this.effects.confetti(); setTimeout(() => this.mango._setAnim('idle'), 3000); }, rand(2000, 4000));
+      } else if (draft) {
+        if (Math.random() < 0.5) setTimeout(() => { this.mango.say(pick(['A DRAFT?! Not ready for MY review yet.', 'Draft PR. I\'ll wait. *taps foot impatiently*', 'Come back when it\'s ready for the big leagues.', '*stamps DRAFT in big red letters*'])); sfx.chirp(); }, rand(2000, 5000));
+      } else if (closed) {
+        if (Math.random() < 0.4) setTimeout(() => { this.mango.say(pick(['Closed... *supportive chirp*', 'Sometimes things close. It\'s okay. 🧡'])); sfx.chirp(); }, rand(3000, 6000));
+      }
+      // Review decision state (changes requested / approved)
+      const reviewDecision = $('.ReviewDecision, .review-status-label, .mergeability-details');
+      if (reviewDecision && Math.random() < 0.4) {
+        const rdText = (reviewDecision.textContent || '').toLowerCase();
+        if (rdText.includes('changes requested') || rdText.includes('request changes')) {
+          setTimeout(() => { this.mango.say(pick(['Changes requested! Don\'t worry, you got this 💪', '*supportive chirp* Revisions make code stronger!', 'Changes requested? That\'s just \'almost perfect\' in review speak.'])); sfx.chirp(); }, rand(3000, 6000));
+        } else if (rdText.includes('approved')) {
+          setTimeout(() => { this.mango.say(pick(['APPROVED! 🎉 (I would have approved it sooner)', 'Someone approved! Was it me? It should have been me.', '*takes credit for the approval*'])); sfx.happy(); }, rand(3000, 6000));
+        }
+      }
+      // Markdown task lists — checkbox progress
+      const checkboxes = $$('.task-list-item input[type="checkbox"], .contains-task-list input[type="checkbox"]');
+      if (checkboxes.length > 0 && Math.random() < 0.4) {
+        const checked = checkboxes.filter(cb => cb.checked).length;
+        const total = checkboxes.length;
+        setTimeout(() => {
+          if (checked === total) this.mango.say(pick(['All tasks done! ✅ You\'re a MACHINE!', 'Every checkbox checked! *chef\'s kiss*', '100% complete! Time for a victory lap! 🏆']));
+          else if (checked > total / 2) this.mango.say(pick([`${checked}/${total} tasks done! Almost there! 💪`, 'More than halfway! Keep going! ✨']));
+          else if (checked > 0) this.mango.say(pick([`${checked}/${total} tasks... we have work to do.`, 'Some boxes checked, many to go. *rolls up sleeves*']));
+          else this.mango.say(pick(['Zero checkboxes checked?! *concerned chirp*', 'All those unchecked boxes... *judges silently*', 'Not a single checkbox? This is anarchy.']));
+          sfx.chirp();
+        }, rand(4000, 7000));
+      }
+      // Files changed tab — react when viewing diffs
+      if (location.pathname.includes('/files') && Math.random() < 0.3) {
+        setTimeout(() => { this.mango.say(pick(['*scrolls through diff* So many changes...', 'Let me review these files. *puts on reading glasses*', '*scans the diff professionally*', 'I see green lines and red lines. I like the green ones.'])); sfx.chirp(); }, rand(3000, 6000));
+      }
+    }
     // ─── Love notes delivered as bird-held banner ───
     _noteLoop() {
       const go = () => {
         this._noteT = setTimeout(async () => {
-          if (this.mango && !this.mango._sleeping && !this.mango._offScreen) {
+          if (this.mango && !this.mango._sleeping && !this.mango._offScreen && !this.mango._focusMode) {
             const note = await fetchNote();
             if (note) this._deliverNote(note);
           }
@@ -3049,7 +3508,7 @@ const _CHITTI_SOUNDS = {
       };
       // first note quickly
       setTimeout(async () => {
-        if (this.mango) {
+        if (this.mango && !this.mango._focusMode) {
           const note = await fetchNote();
           if (note) this._deliverNote(note);
         }
