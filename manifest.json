@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Chitti — Colab Companion",
+  "name": "Chitti — Colab & GitHub Companion",
   "version": "1.0.0",
-  "description": "A mischievous cockatiel companion for Google Colab 🐦🧡 — with more pets coming soon!",
+  "description": "A mischievous cockatiel companion for Google Colab & GitHub 🐦🧡 — with more pets coming soon!",
   "permissions": ["storage"],
   "host_permissions": [
     "https://api.quotable.io/*",
@@ -27,7 +27,8 @@
         "http://localhost:8889/*",
         "http://localhost:8890/*",
         "https://*.jupyter.org/*",
-        "https://*.jupyterhub.com/*"
+        "https://*.jupyterhub.com/*",
+        "https://github.com/*"
       ],
       "css": ["content/mango.css"],
       "js": ["content/mango.js"],
@@ -48,7 +49,8 @@
         "http://localhost:8889/*",
         "http://localhost:8890/*",
         "https://*.jupyter.org/*",
-        "https://*.jupyterhub.com/*"
+        "https://*.jupyterhub.com/*",
+        "https://github.com/*"
       ]
     }
   ]
